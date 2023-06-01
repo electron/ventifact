@@ -1,0 +1,18 @@
+node_modules/
+
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Zero-installs feature: off
+# Documentation here: https://yarnpkg.com/features/zero-installs
+# !.yarn/cache
+.pnp.*
+
+# Build directories
+packages/*/build/
+
+.env

@@ -1,0 +1,18 @@
+{
+  "name": "api-svc",
+  "packageManager": "yarn@3.5.1",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "^0.4.4",
+    "db-lib": "workspace:*",
+    "fastify": "^4.17.0",
+    "pg-query-stream": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.2.5",
+    "typescript": "^5.0.4"
+  }
+}
