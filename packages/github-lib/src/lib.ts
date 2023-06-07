@@ -84,6 +84,9 @@ export async function* getMergedPRsUntil(
 
   // Repeatedly fetch the next page of results
   while (true) {
+    // NOTE: only the GraphQL API supports querying for the status check rollup,
+    // so we have to use that instead of the REST API.
+    //
     // Query the next page of merged PRs
     const response = await github<{
       repository: {

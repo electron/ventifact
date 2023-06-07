@@ -48,7 +48,8 @@ namespace PRStatusAnalysis {
     for await (const pr of prs) {
       // Determine the date this PR was merged on
       const date = Temporal.PlainDate.from(
-        pr.merged_at.toISOString(),
+        // TODO: this slicing works, but it feels like a hack...
+        pr.merged_at.toISOString().slice(0, 10),
       ).toString();
 
       if (currentBucket === undefined) {

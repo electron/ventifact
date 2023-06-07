@@ -3,13 +3,13 @@
   "packageManager": "yarn@3.5.1",
   "type": "module",
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "start": "node build/main.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.4.4",
     "db-lib": "workspace:*",
-    "fastify": "^4.17.0",
-    "pg-query-stream": "^4.5.0"
+    "fastify": "^4.17.0"
   },
   "devDependencies": {
     "@types/node": "^20.2.5",
