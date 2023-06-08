@@ -7,6 +7,7 @@
     "start": "node build/main.js"
   },
   "dependencies": {
+    "@fastify/static": "^6.10.2",
     "@js-temporal/polyfill": "^0.4.4",
     "db-lib": "workspace:*",
     "fastify": "^4.17.0"

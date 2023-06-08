@@ -1,11 +1,18 @@
 import Fastify from "fastify";
 import { db, Tables } from "db-lib";
 import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
+import fastifyStatic from "@fastify/static";
+import * as path from "node:path";
 
 // TODO: parse JUnit XML submissions using @xml-tools/parser
 
 const server = Fastify({
   logger: true,
+});
+
+// Serve static files from the `web-interface` project
+server.register(fastifyStatic, {
+  root: path.join(import.meta.url, "..", "..", "web-interface", "dist"),
 });
 
 /**
