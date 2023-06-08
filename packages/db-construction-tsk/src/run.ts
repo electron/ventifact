@@ -56,8 +56,8 @@ console.info("Created.");
 
 console.info("Populating tables...");
 // Get PRs until a year ago
-const initial = Temporal.Now.zonedDateTime(Temporal.Calendar.from("iso8601"))
-  .subtract({ months: 6 }) // TODO: fix to be years
+const initial = Temporal.Now.zonedDateTimeISO("UTC")
+  .subtract({ years: 1 })
   .toInstant();
 for await (const pr of getMergedPRsUntil(initial)) {
   // Insert the PR into the database

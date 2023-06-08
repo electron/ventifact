@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import { db, Tables } from "db-lib";
-import { Temporal } from "@js-temporal/polyfill";
+import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
 
 // TODO: parse JUnit XML submissions using @xml-tools/parser
 
@@ -47,10 +47,10 @@ namespace PRStatusAnalysis {
 
     for await (const pr of prs) {
       // Determine the date this PR was merged on
-      const date = Temporal.PlainDate.from(
-        // TODO: this slicing works, but it feels like a hack...
-        pr.merged_at.toISOString().slice(0, 10),
-      ).toString();
+      const date = toTemporalInstant
+        .call(pr.merged_at)
+        .toZonedDateTimeISO("UTC")
+        .toString();
 
       if (currentBucket === undefined) {
         // If there's no current bucket, then create one
