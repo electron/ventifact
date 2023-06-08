@@ -44,21 +44,6 @@
     }
   }
 
-  /**
-   * Calculates a rolling average of the given key in the data.
-   */
-  function rollingAverage(key: keyof DateBucket["counts"]): number[] {
-    return data.map((_, i) => {
-      // TODO: limit slice to 7 *days*, not buckets
-      const prevBuckets = data.slice(Math.max(0, i - 6), i + 1);
-      const prevSum = prevBuckets.reduce(
-        (acc, bucket) => acc + bucket.counts[key],
-        0,
-      );
-      return prevSum / prevBuckets.length;
-    });
-  }
-
   // Attach the chart to the canvas element when it is mounted
   $: if (canvasElem !== undefined) {
     // If there's already a chart, destroy it
@@ -67,7 +52,8 @@
     // Process the data for the chart
     const dateLabels = data.map((bucket) => bucket.date);
     const [successData, failureData] = ["success", "failure"].map(
-      rollingAverage,
+      (key: keyof DateBucket["counts"]) =>
+        data.map((bucket) => bucket.counts[key]),
     );
 
     // Create the chart
