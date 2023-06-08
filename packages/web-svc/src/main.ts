@@ -3,16 +3,40 @@ import { db, Tables } from "db-lib";
 import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
 import fastifyStatic from "@fastify/static";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // TODO: parse JUnit XML submissions using @xml-tools/parser
 
 const server = Fastify({
-  logger: true,
+  logger:
+    {
+      production: true,
+      development: {
+        transport: {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            ignore: "pid,hostname",
+          },
+        },
+      },
+    }[process.env.NODE_ENV ?? "development"] ?? true,
 });
 
 // Serve static files from the `web-interface` project
 server.register(fastifyStatic, {
-  root: path.join(import.meta.url, "..", "..", "web-interface", "dist"),
+  root: path.join(
+    fileURLToPath(import.meta.url),
+    "..",
+    "..",
+    "..",
+    "web-interface",
+    "dist",
+  ),
+});
+
+server.get("/", (_, reply) => {
+  reply.sendFile("index.html");
 });
 
 /**
@@ -125,7 +149,7 @@ namespace PRStatusAnalysis {
   }
 }
 
-server.get("/pr-statuses", async (_, reply) => {
+server.get("/merged-pr-statuses", async (_, reply) => {
   // Fetch the analysis
   const result = await PRStatusAnalysis.get();
 
