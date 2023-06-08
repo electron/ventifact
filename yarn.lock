@@ -827,6 +827,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "db-maintenance-tsk@workspace:packages/db-maintenance-tsk"
   dependencies:
+    "@js-temporal/polyfill": ^0.4.4
     "@types/node": ^20.2.5
     github-lib: "workspace:*"
     typescript: ^5.0.4

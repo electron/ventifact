@@ -1,0 +1,17 @@
+{
+  "name": "db-maintenance-tsk",
+  "packageManager": "yarn@3.5.1",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node build/run.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.2.5",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "^0.4.4",
+    "github-lib": "workspace:*"
+  }
+}
