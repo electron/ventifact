@@ -35,10 +35,6 @@ server.register(fastifyStatic, {
   ),
 });
 
-server.get("/", (_, reply) => {
-  reply.sendFile("index.html");
-});
-
 /**
  * Analyzes the PR statuses in the database and caches the results for a brief
  * period of time.
@@ -81,6 +77,7 @@ namespace PRStatusAnalysis {
       const date = toTemporalInstant
         .call(pr.merged_at)
         .toZonedDateTimeISO("UTC")
+        .toPlainDate()
         .toString();
 
       if (currentBucket === undefined) {
@@ -149,7 +146,7 @@ namespace PRStatusAnalysis {
   }
 }
 
-server.get("/merged-pr-statuses", async (_, reply) => {
+server.get("/api/merged-pr-statuses", async (_, reply) => {
   // Fetch the analysis
   const result = await PRStatusAnalysis.get();
 

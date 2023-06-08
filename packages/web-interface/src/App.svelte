@@ -25,7 +25,7 @@
       return Promise.resolve(data);
     }
 
-    return fetch("/api/merged-prs").then((res) => res.json());
+    return fetch("/api/merged-pr-statuses").then((res) => res.json());
   }
 </script>
 
