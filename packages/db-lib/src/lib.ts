@@ -1,13 +1,14 @@
 import knexPkg from "knex";
 const { knex } = knexPkg;
 
-if (!process.env.PG_CONNECTION) {
+// Determine the URL to connect to the database
+if (!process.env.DATABASE_URL) {
   throw new Error("PG_CONNECTION environment variable is not set");
 }
 
 export const db = knex({
   client: "pg",
-  connection: process.env.PG_CONNECTION,
+  connection: process.env.DATABASE_URL,
   pool: {
     // note: these numbers have been chosen arbitrarily
     min: 0,
