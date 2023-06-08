@@ -3,7 +3,7 @@ const { knex } = knexPkg;
 
 // Determine the URL to connect to the database
 if (!process.env.DATABASE_URL) {
-  throw new Error("PG_CONNECTION environment variable is not set");
+  throw new Error("DATABASE_URL environment variable is not set");
 }
 
 export const db = knex({
