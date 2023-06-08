@@ -155,13 +155,19 @@ server.get("/api/merged-pr-statuses", async (_, reply) => {
 });
 
 const port = parseInt(process.env.PORT!) || 3000;
-server.listen({ port }, (err, addr) => {
-  // Exit if the server fails to start.
-  if (err) {
-    server.log.error(err);
-    process.exit(1);
-  }
+server.listen(
+  {
+    host: process.env.NODE_ENV === "production" ? "0.0.0.0" : "localhost",
+    port,
+  },
+  (err, addr) => {
+    // Exit if the server fails to start.
+    if (err) {
+      server.log.error(err);
+      process.exit(1);
+    }
 
-  // Otherwise, log the server address.
-  server.log.info(`Server listening on ${addr}`);
-});
+    // Otherwise, log the server address.
+    server.log.info(`Server listening on ${addr}`);
+  },
+);
