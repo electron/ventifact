@@ -8,7 +8,12 @@ if (!process.env.DATABASE_URL) {
 
 export const db = knex({
   client: "pg",
-  connection: process.env.DATABASE_URL,
+  connection: {
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  },
   pool: {
     // note: these numbers have been chosen arbitrarily
     min: 0,
