@@ -4,6 +4,9 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "scripts": {
+    "build": "yarn workspaces foreach run build"
+  },
   "devDependencies": {
     "prettier": "^2.8.8",
     "typescript": "^5.0.4"
