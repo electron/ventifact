@@ -73,11 +73,8 @@
             label: "Succeeded",
             data: successData,
             borderColor: "#0b0",
-            fill: {
-              target: "stack",
-              above: "rgba(0, 176, 0, 0.1)",
-              below: "rgba(224, 0, 0, 0.2)",
-            },
+            backgroundColor: "rgba(0, 176, 0, 0.1)",
+            fill: "stack",
           },
         ],
       },
@@ -92,7 +89,7 @@
           },
           y: {
             beginAtZero: true,
-            // stacked: true,
+            stacked: true,
           },
         },
         plugins: {
