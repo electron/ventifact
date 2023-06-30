@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+  import { Temporal } from "@js-temporal/polyfill";
   import { onDestroy } from "svelte";
 
   import {
@@ -44,16 +45,67 @@
     }
   }
 
+  function rollingDateAverage(
+    dateRange: Temporal.Duration,
+    datedData: Map<string, DateBucket["counts"]>,
+  ): Map<string, DateBucket["counts"]> {
+    const result = new Map<string, DateBucket["counts"]>();
+
+    for (const [targetDateStr, targetDateCounts] of datedData.entries()) {
+      // Initialize the counts to those of the target date
+      const rangeCountSums = Object.assign({}, targetDateCounts);
+      let totalCount = 1; // 1 since we already have the target date counts
+
+      // Iterate over every date *before* the target date (so we don't count it
+      // twice)
+      const targetDate = Temporal.PlainDate.from(targetDateStr);
+      for (
+        let date = targetDate.subtract(dateRange);
+        Temporal.PlainDate.compare(date, targetDate) < 0;
+        date = date.add({ days: 1 })
+      ) {
+        // Try to get this date's counts, skipping it if there is no data
+        const counts = datedData.get(date.toString());
+        if (counts === undefined) {
+          continue;
+        }
+
+        // Add this date's counts to the sums
+        for (const [key, count] of Object.entries(counts)) {
+          rangeCountSums[key] += count;
+        }
+        totalCount += 1;
+      }
+
+      // Calculate and add the average to the result data
+      for (const key of Object.keys(rangeCountSums)) {
+        rangeCountSums[key] /= totalCount;
+      }
+      result.set(targetDateStr, rangeCountSums);
+    }
+
+    return result;
+  }
+
   // Attach the chart to the canvas element when it is mounted
   $: if (canvasElem !== undefined) {
     // If there's already a chart, destroy it
     tryClearChart();
 
-    // Process the data for the chart
-    const dateLabels = data.map((bucket) => bucket.date);
+    // Process the data
+    const processedDataMap = rollingDateAverage(
+      Temporal.Duration.from({ weeks: 4 }),
+      new Map(data.map((bucket) => [bucket.date, bucket.counts])),
+    );
+    const sortedData = Array.from(processedDataMap.entries())
+      .map(([date, counts]) => ({ date, counts }))
+      .sort((a, b) => Temporal.PlainDate.compare(a.date, b.date));
+
+    // Extract the data for the chart
+    const dateLabels = sortedData.map((bucket) => bucket.date);
     const [successData, failureData] = ["success", "failure"].map(
       (key: keyof DateBucket["counts"]) =>
-        data.map((bucket) => bucket.counts[key]),
+        sortedData.map((bucket) => bucket.counts[key]),
     );
 
     // Create the chart

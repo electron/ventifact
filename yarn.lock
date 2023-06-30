@@ -3121,6 +3121,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "web-interface@workspace:packages/web-interface"
   dependencies:
+    "@js-temporal/polyfill": ^0.4.4
     "@sveltejs/vite-plugin-svelte": ^2.0.4
     "@tsconfig/svelte": ^4.0.1
     chart.js: ^4.3.0

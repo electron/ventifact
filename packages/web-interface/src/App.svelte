@@ -9,6 +9,10 @@
       // dev server. Instead, we'll just generate some fake data.
       const data = new Array(142);
       for (let i = 0; i < data.length; i++) {
+        if (Math.random() < 1 / 64) {
+          continue;
+        }
+
         const date = new Date(2023, 0, i + 1);
 
         data[i] = {
@@ -20,6 +24,12 @@
             unknown: Math.floor(Math.random() * 10),
           },
         };
+      }
+
+      for (let i = 0; i < data.length; i++) {
+        if (data[i] === undefined) {
+          data.splice(i, 1);
+        }
       }
 
       return Promise.resolve(data);
