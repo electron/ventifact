@@ -19,6 +19,7 @@
     LinearScale,
     PointElement,
     TimeScale,
+    Tooltip,
   } from "chart.js";
   import "chartjs-adapter-date-fns";
   Chart.register(
@@ -28,6 +29,7 @@
     LinearScale,
     PointElement,
     TimeScale,
+    Tooltip,
   );
 
   export let data: MergedPRsData;
@@ -136,7 +138,7 @@
             type: "time",
             time: {
               unit: "day",
-              tooltipFormat: "MMM D, YYYY",
+              tooltipFormat: "yyyy-MM-dd",
             },
           },
           y: {
