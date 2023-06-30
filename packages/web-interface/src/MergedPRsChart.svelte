@@ -105,9 +105,13 @@
 
     // Extract the data for the chart
     const dateLabels = sortedData.map((bucket) => bucket.date);
-    const [successData, failureData] = ["success", "failure"].map(
-      (key: keyof DateBucket["counts"]) =>
-        sortedData.map((bucket) => bucket.counts[key]),
+    const [successData, failureData, neutralData, unknownData] = [
+      "success",
+      "failure",
+      "neutral",
+      "unknown",
+    ].map((key: keyof DateBucket["counts"]) =>
+      sortedData.map((bucket) => bucket.counts[key]),
     );
 
     // Create the chart
@@ -116,6 +120,20 @@
       data: {
         labels: dateLabels,
         datasets: [
+          {
+            label: "Neutral",
+            data: neutralData,
+            borderColor: "#aaa",
+            backgroundColor: "rgba(176, 176, 176, 0.1)",
+            fill: "stack",
+          },
+          {
+            label: "Unknown",
+            data: unknownData,
+            borderColor: "#ba0",
+            backgroundColor: "rgba(176, 160, 0, 0.1)",
+            fill: "stack",
+          },
           {
             label: "Failed",
             data: failureData,
