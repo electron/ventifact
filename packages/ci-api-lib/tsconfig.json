@@ -4,7 +4,10 @@
     "rootDir": "src",
     "outDir": "build",
     "tsBuildInfoFile": "build/.tsbuildinfo",
-    "composite": true
+    "composite": true,
+    "allowSyntheticDefaultImports": true,
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }
