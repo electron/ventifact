@@ -1,4 +1,4 @@
-import got, { Got } from "got";
+import got, { Got, Request } from "got";
 
 export class Client {
   #http: Got;
@@ -47,12 +47,11 @@ export class Client {
     );
   }
 
-  buildJobLog(jobId: string): Promise<string> {
-    return this.#http
-      .get(`buildjobs/${jobId}/log`, {
-        responseType: "text",
-      })
-      .text();
+  buildJobLogStream(jobId: string): Request {
+    return this.#http.get(`buildjobs/${jobId}/log`, {
+      responseType: "text",
+      isStream: true,
+    });
   }
 }
 
