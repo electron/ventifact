@@ -56,18 +56,34 @@ Observations
 Schema
 ======
 
-Design decisions
-----------------
+Conventions
+-----------
 
-To do.
+Blueprints
+~~~~~~~~~~
 
-Specification
--------------
+A *Blueprint* is a repeatable description of an object, like the full set of tests in a test run or the name of a test. Blueprints are employed in this database schema to deduplicate data, reducing the amount of data storage required to run Ventifact.
 
-To do.
+Blueprints are identified according to the specific structure they describe. Given a concrete instance of a blueprint, you can determine that object's Blueprint ID, which is essentially a hash of its structure. If two objects have the same structure, they will have the same Blueprint ID. For example, two test runs of the same set of tests will have the same Blueprint ID, even if they were run at different times and produced different results.
 
+The Blueprint ID is a deterministic hash digest of the Blueprint's structure. The hash function can be any hash function that produces a digest of a fixed size, but in the interest of balancing data storage size while still avoiding collisions, the hash function should be chosen carefully. The current hash function is SHAKE256 with an output size of 64 bits.
 
-Usage
-=====
+The Blueprint ID hash digest procedure is deterministic in that it will always produce the same digest for the same structure, even if that structure is initially out of order. For example, given a test run with 3 results, the Blueprint ID will be the same no matter which order the test results are in. However, adding a 4th test result will cause the Blueprint ID to change.
 
-To do.
+Data Structures
+---------------
+
+Test Run Blueprint
+  - Blueprint ID
+  - Set of Test Blueprint IDs
+
+Test Blueprint
+  - Blueprint ID
+  - Title
+
+Test Run
+  - Blueprint ID (reference to Test Run Blueprint)
+  - Failed Test Blueprint IDs
+    - Note: only the failed tests are stored; it can be assumed that any test not stored here passed.
+  - Timestamp
+  - Branch
