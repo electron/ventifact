@@ -66,7 +66,7 @@ A *Blueprint* is a repeatable description of an object, like the full set of tes
 
 Blueprints are identified according to the specific structure they describe. Given a concrete instance of a blueprint, you can determine that object's Blueprint ID, which is essentially a hash of its structure. If two objects have the same structure, they will have the same Blueprint ID. For example, two test runs of the same set of tests will have the same Blueprint ID, even if they were run at different times and produced different results.
 
-The Blueprint ID is a deterministic hash digest of the Blueprint's structure. The hash function can be any hash function that produces a digest of a fixed size, but in the interest of balancing data storage size while still avoiding collisions, the hash function should be chosen carefully. The current hash function is SHAKE256 with an output size of 64 bits.
+The Blueprint ID is a deterministic hash digest of the Blueprint's structure. The hash function can be any hash function that produces a digest of a fixed size, but in the interest of balancing data storage size while still avoiding collisions, the hash function should be chosen carefully. The current hash function is SHAKE256 with an output size of 64 bits. (This size is also desirable because it exactly fits the 64-bit integer type used by PostgreSQL.)
 
 The Blueprint ID hash digest procedure is deterministic in that it will always produce the same digest for the same structure, even if that structure is initially out of order. For example, given a test run with 3 results, the Blueprint ID will be the same no matter which order the test results are in. However, adding a 4th test result will cause the Blueprint ID to change.
 

@@ -1,5 +1,5 @@
 {
-  "name": "db-maintenance-tsk",
+  "name": "ctl",
   "packageManager": "yarn@3.5.1",
   "type": "module",
   "scripts": {
@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.4.4",
+    "ci-api-lib": "workspace:*",
+    "data-lib": "workspace:*",
     "github-lib": "workspace:*"
   }
 }

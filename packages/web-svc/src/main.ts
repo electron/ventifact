@@ -1,7 +1,7 @@
+import { PR, streamPRsByMergedAtAsc } from "data-lib";
 import Fastify from "fastify";
-import { db, Tables } from "db-lib";
-import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
 import fastifyStatic from "@fastify/static";
+import { Temporal } from "@js-temporal/polyfill";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -46,7 +46,7 @@ namespace PRStatusAnalysis {
    */
   export interface DateBucket {
     date: string;
-    counts: Record<Tables.PR["status"], number>;
+    counts: Record<PR["status"], number>;
   }
 
   /** The result of the analysis. */
@@ -63,10 +63,7 @@ namespace PRStatusAnalysis {
    */
   async function compute(): Promise<Result> {
     // Fetch the PRs from the database in ascending order by merge date
-    const prs = db<Tables.PR>("prs")
-      .select("*")
-      .orderBy("merged_at", "asc")
-      .stream();
+    const prs = streamPRsByMergedAtAsc();
 
     // Construct the result as PRs stream through
     const result: Result = [];
@@ -74,11 +71,7 @@ namespace PRStatusAnalysis {
 
     for await (const pr of prs) {
       // Determine the date this PR was merged on
-      const date = toTemporalInstant
-        .call(pr.merged_at)
-        .toZonedDateTimeISO("UTC")
-        .toPlainDate()
-        .toString();
+      const date = pr.mergedAt.toPlainDate().toString();
 
       if (currentBucket === undefined) {
         // If there's no current bucket, then create one

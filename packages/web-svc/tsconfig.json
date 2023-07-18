@@ -6,6 +6,12 @@
     "tsBuildInfoFile": "build/.tsbuildinfo",
     "composite": true
   },
-  "include": ["src/**/*.ts"],
-  "references": [{ "path": "../db-lib" }]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../data-lib"
+    }
+  ]
 }

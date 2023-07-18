@@ -1,5 +1,5 @@
 import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
-import { Tables, db } from "db-lib";
+import { Tables, db } from "data-lib";
 import { getMergedPRsUntil } from "github-lib";
 
 /////////////////////////////

@@ -9,7 +9,7 @@
   "dependencies": {
     "@fastify/static": "^6.10.2",
     "@js-temporal/polyfill": "^0.4.4",
-    "db-lib": "workspace:*",
+    "data-lib": "workspace:*",
     "fastify": "^4.17.0"
   },
   "devDependencies": {

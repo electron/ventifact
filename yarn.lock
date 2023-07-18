@@ -484,13 +484,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^20.3.2":
-  version: 20.3.3
-  resolution: "@types/node@npm:20.3.3"
-  checksum: 7a0d00800451ca8cd8df63a8cc218c697edadb3143bf46cd6afeb974542a6a1665c3679459be0016c29216ccfed6616b7e55851747527dfa71c5608d9157528c
-  languageName: node
-  linkType: hard
-
 "@types/pg@npm:^8":
   version: 8.10.1
   resolution: "@types/pg@npm:8.10.1"
@@ -820,13 +813,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ci-api-lib@workspace:packages/ci-api-lib":
+"ci-api-lib@workspace:*, ci-api-lib@workspace:packages/ci-api-lib":
   version: 0.0.0-use.local
   resolution: "ci-api-lib@workspace:packages/ci-api-lib"
   dependencies:
-    "@types/node": ^20.3.2
+    "@types/node": ^20.2.5
     got: ^13.0.0
-    typescript: ^5.1.6
+    typescript: ^5.0.4
   languageName: unknown
   linkType: soft
 
@@ -897,6 +890,33 @@ __metadata:
   languageName: node
   linkType: hard
 
+"ctl@workspace:packages/ctl":
+  version: 0.0.0-use.local
+  resolution: "ctl@workspace:packages/ctl"
+  dependencies:
+    "@js-temporal/polyfill": ^0.4.4
+    "@types/node": ^20.2.5
+    ci-api-lib: "workspace:*"
+    data-lib: "workspace:*"
+    github-lib: "workspace:*"
+    typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
+
+"data-lib@workspace:*, data-lib@workspace:packages/data-lib":
+  version: 0.0.0-use.local
+  resolution: "data-lib@workspace:packages/data-lib"
+  dependencies:
+    "@js-temporal/polyfill": ^0.4.4
+    "@types/node": ^20.2.5
+    "@types/pg": ^8
+    knex: ^2.4.2
+    pg: ^8.11.0
+    pg-query-stream: ^4.5.0
+    typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
+
 "date-fns@npm:^2.30.0":
   version: 2.30.0
   resolution: "date-fns@npm:2.30.0"
@@ -912,42 +932,6 @@ __metadata:
   checksum: c3aa0617c0a5b30595122bc8d1bee6276a9221e4d392087b41cbbdf175d9662ae0e50d0d6dcdf45caeac5153c4b5b0844265f8cd2b2245451e3da19e39e3b65d
   languageName: node
   linkType: hard
-
-"db-construction-tsk@workspace:packages/db-construction-tsk":
-  version: 0.0.0-use.local
-  resolution: "db-construction-tsk@workspace:packages/db-construction-tsk"
-  dependencies:
-    "@js-temporal/polyfill": ^0.4.4
-    "@types/node": ^20.2.5
-    db-lib: "workspace:*"
-    github-lib: "workspace:*"
-    typescript: ^5.0.4
-  languageName: unknown
-  linkType: soft
-
-"db-lib@workspace:*, db-lib@workspace:packages/db-lib":
-  version: 0.0.0-use.local
-  resolution: "db-lib@workspace:packages/db-lib"
-  dependencies:
-    "@types/node": ^20.2.5
-    "@types/pg": ^8
-    knex: ^2.4.2
-    pg: ^8.11.0
-    pg-query-stream: ^4.5.0
-    typescript: ^5.0.4
-  languageName: unknown
-  linkType: soft
-
-"db-maintenance-tsk@workspace:packages/db-maintenance-tsk":
-  version: 0.0.0-use.local
-  resolution: "db-maintenance-tsk@workspace:packages/db-maintenance-tsk"
-  dependencies:
-    "@js-temporal/polyfill": ^0.4.4
-    "@types/node": ^20.2.5
-    github-lib: "workspace:*"
-    typescript: ^5.0.4
-  languageName: unknown
-  linkType: soft
 
 "debug@npm:4, debug@npm:4.3.4, debug@npm:^4.0.0, debug@npm:^4.1.0, debug@npm:^4.3.3, debug@npm:^4.3.4":
   version: 4.3.4
@@ -3203,16 +3187,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.1.6":
-  version: 5.1.6
-  resolution: "typescript@npm:5.1.6"
-  bin:
-    tsc: bin/tsc
-    tsserver: bin/tsserver
-  checksum: b2f2c35096035fe1f5facd1e38922ccb8558996331405eb00a5111cc948b2e733163cc22fab5db46992aba7dd520fff637f2c1df4996ff0e134e77d3249a7350
-  languageName: node
-  linkType: hard
-
 "typescript@patch:typescript@^5.0.2#~builtin<compat/typescript>, typescript@patch:typescript@^5.0.3#~builtin<compat/typescript>, typescript@patch:typescript@^5.0.4#~builtin<compat/typescript>":
   version: 5.0.4
   resolution: "typescript@patch:typescript@npm%3A5.0.4#~builtin<compat/typescript>::version=5.0.4&hash=b5f058"
@@ -3220,16 +3194,6 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: d26b6ba97b6d163c55dbdffd9bbb4c211667ebebc743accfeb2c8c0154aace7afd097b51165a72a5bad2cf65a4612259344ff60f8e642362aa1695c760d303ac
-  languageName: node
-  linkType: hard
-
-"typescript@patch:typescript@^5.1.6#~builtin<compat/typescript>":
-  version: 5.1.6
-  resolution: "typescript@patch:typescript@npm%3A5.1.6#~builtin<compat/typescript>::version=5.1.6&hash=77c9e2"
-  bin:
-    tsc: bin/tsc
-    tsserver: bin/tsserver
-  checksum: 21e88b0a0c0226f9cb9fd25b9626fb05b4c0f3fddac521844a13e1f30beb8f14e90bd409a9ac43c812c5946d714d6e0dee12d5d02dfc1c562c5aacfa1f49b606
   languageName: node
   linkType: hard
 
@@ -3357,7 +3321,7 @@ __metadata:
     "@fastify/static": ^6.10.2
     "@js-temporal/polyfill": ^0.4.4
     "@types/node": ^20.2.5
-    db-lib: "workspace:*"
+    data-lib: "workspace:*"
     fastify: ^4.17.0
     pino-pretty: ^10.0.0
     typescript: ^5.0.4

@@ -11,7 +11,10 @@
   ],
   "references": [
     {
-      "path": "../db-lib"
+      "path": "../ci-api-lib"
+    },
+    {
+      "path": "../data-lib"
     },
     {
       "path": "../github-lib"

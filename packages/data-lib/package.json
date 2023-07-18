@@ -1,18 +1,21 @@
 {
-  "name": "db-construction-tsk",
+  "name": "data-lib",
   "packageManager": "yarn@3.5.1",
   "type": "module",
+  "main": "build/lib.js",
+  "types": "build/lib.d.ts",
   "scripts": {
-    "build": "tsc -b",
-    "start": "node build/run.js"
+    "build": "tsc -b"
   },
   "devDependencies": {
     "@types/node": "^20.2.5",
+    "@types/pg": "^8",
     "typescript": "^5.0.4"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.4.4",
-    "db-lib": "workspace:*",
-    "github-lib": "workspace:*"
+    "knex": "^2.4.2",
+    "pg": "^8.11.0",
+    "pg-query-stream": "^4.5.0"
   }
 }
