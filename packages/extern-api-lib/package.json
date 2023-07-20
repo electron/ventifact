@@ -1,5 +1,5 @@
 {
-  "name": "ci-api-lib",
+  "name": "extern-api-lib",
   "packageManager": "yarn@3.5.1",
   "type": "module",
   "main": "build/lib.js",

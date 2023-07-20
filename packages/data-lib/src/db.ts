@@ -1,4 +1,5 @@
-import { knex } from "knex";
+import knexPkg from "knex";
+const { knex } = knexPkg;
 
 // Determine the URL to connect to the database
 if (!process.env.DATABASE_URL) {
@@ -9,9 +10,13 @@ export const db = knex({
   client: "pg",
   connection: {
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false,
-    },
+    ...(process.env.NODE_ENV === "production"
+      ? {
+          ssl: {
+            rejectUnauthorized: false,
+          },
+        }
+      : {}),
   },
   pool: {
     // note: these numbers have been chosen arbitrarily
@@ -20,14 +25,4 @@ export const db = knex({
   },
 });
 
-/**
- * The JS representation of a Blueprint ID. See `docs/db-design.rst` for more
- * information.
- */
-export type BlueprintID = string;
-
-/**
- * The JS representation of a list of Blueprint IDs. See `docs/db-design.rst`
- * for more information.
- */
-export type BlueprintIDList = string;
+export const dbSchema = db.schema;

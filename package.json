@@ -6,7 +6,7 @@
   },
   "scripts": {
     "build": "yarn workspaces foreach run build",
-    "ctl": "yarn packages/ctl start"
+    "ctl": "yarn packages/ctl run"
   },
   "devDependencies": {
     "prettier": "^2.8.8",

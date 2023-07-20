@@ -11,13 +11,10 @@
   ],
   "references": [
     {
-      "path": "../ci-api-lib"
+      "path": "../extern-api-lib"
     },
     {
       "path": "../data-lib"
-    },
-    {
-      "path": "../github-lib"
     }
   ]
 }

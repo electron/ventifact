@@ -15,7 +15,7 @@ export class Client {
   #paginate<T>(path: string): AsyncIterableIterator<T> {
     interface Items {
       items: T[];
-      next_page_token?: string;
+      next_page_token?: string | null;
     }
 
     return this.#http.paginate<T, Items>(path, {
@@ -24,7 +24,7 @@ export class Client {
         paginate({ response }) {
           // Use the next page token if there is one, otherwise stop paginating
           const next = response.body.next_page_token;
-          if (next !== undefined) {
+          if (next !== undefined && next !== null) {
             return {
               searchParams: {
                 "page-token": next,
@@ -63,6 +63,9 @@ export class Client {
 
 export interface Pipeline {
   id: string;
+  vcs?: {
+    branch?: string;
+  };
 }
 
 export interface Workflow {
@@ -74,6 +77,7 @@ export interface Job {
   id: string;
   name: string;
   job_number?: number;
+  started_at: string;
 }
 
 export interface TestMetadata {
@@ -81,7 +85,7 @@ export interface TestMetadata {
   source: string;
   run_time: number;
   file: string;
-  result: string;
+  result: string; // "success" | "failure"
   name: string;
   classname: string;
 }

@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
-    "start": "node build/run.js"
+    "construct": "node build/scripts/construct.js",
+    "maintain": "node build/scripts/maintain.js"
   },
   "devDependencies": {
     "@types/node": "^20.2.5",
@@ -12,8 +13,7 @@
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.4.4",
-    "ci-api-lib": "workspace:*",
     "data-lib": "workspace:*",
-    "github-lib": "workspace:*"
+    "extern-api-lib": "workspace:*"
   }
 }

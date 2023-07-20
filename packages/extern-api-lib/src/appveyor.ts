@@ -59,7 +59,7 @@ export interface Build {
   buildId: number;
   jobs: Job[];
   branch: string;
-  commitId: string;
+  created: string;
 }
 
 export interface Job {

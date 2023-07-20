@@ -1,5 +1,5 @@
 import { Knex } from "knex";
-import { BlueprintID, BlueprintIDList } from "./db.ts";
+import { BlueprintID, BlueprintIDList } from "./tests.ts";
 
 /**
  * Given a table with `Date` fields, converts it to accept `string` values for

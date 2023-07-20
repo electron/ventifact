@@ -70,6 +70,24 @@ The Blueprint ID is a deterministic hash digest of the Blueprint's structure. Th
 
 The Blueprint ID hash digest procedure is deterministic in that it will always produce the same digest for the same structure, even if that structure is initially out of order. For example, given a test run with 3 results, the Blueprint ID will be the same no matter which order the test results are in. However, adding a 4th test result will cause the Blueprint ID to change.
 
+Result Spec
+~~~~~~~~~~~
+
+For test runs, we use a small purpose-built binary format to efficiently describe the results of a test run, called the *Result Spec*.
+
+The format has two parts, in order: a "variant" indiciator byte, then a list of test Blueprint IDs. The variant byte indicates how to interpret the list of tests that follow it.
+
+| Variant | Description       |
+| ------- | ----------------- |
+| `00`    | Test failure list |
+| `01`    | Test success list |
+
+The test list contains only the tests that match the criteria of the variant. For example, in a test failure list, the list contains only the tests that failed, and all other tests are assumed to have passed. Vice versa for a test success list: the list contains only the tests that passed, and all other tests are assumed to have failed.
+
+Any given run should be encodable in either variant, but the variant that is chosen should be the one that results in the smallest data size.
+
+Note that the result spec may also be *null* in the database. This is shorthand to indicate that all tests passed.
+
 Data Structures
 ---------------
 
@@ -83,7 +101,7 @@ Test Blueprint
 
 Test Run
   - Blueprint ID (reference to Test Run Blueprint)
-  - Failed Test Blueprint IDs
-    - Note: only the failed tests are stored; it can be assumed that any test not stored here passed.
+  - Result Spec
+    - See "Result Spec" section above.
   - Timestamp
   - Branch
