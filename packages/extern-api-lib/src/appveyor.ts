@@ -24,6 +24,9 @@ export class Client {
       `projects/${accountName}/${projectSlug}/history`,
       {
         responseType: "json",
+        searchParams: {
+          recordsNumber: 20,
+        },
         pagination: {
           paginate({ currentItems }) {
             // Stop when there's no more builds

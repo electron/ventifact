@@ -1,3 +1,3 @@
-export { dbSchema } from "./db.js";
+export { dbSchema, closeDb } from "./db.js";
 export * from "./prs.js";
 export * from "./tests.js";

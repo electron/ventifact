@@ -1,4 +1,4 @@
-import knexPkg from "knex";
+import knexPkg, { Knex } from "knex";
 const { knex } = knexPkg;
 
 // Determine the URL to connect to the database
@@ -25,4 +25,15 @@ export const db = knex({
   },
 });
 
-export const dbSchema = db.schema;
+export function dbSchema(): Knex.SchemaBuilder {
+  // DO NOT REFACTOR THIS INTO A CONSTANT!
+  //
+  // `db.schema` is actually a property accessor that returns a new instance of
+  // `Knex.SchemaBuilder` every time it's called, which causes race conditions
+  // when used multiple times--which is very bad!!
+  return db.schema;
+}
+
+export async function closeDb() {
+  return db.destroy();
+}

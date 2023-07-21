@@ -25,14 +25,22 @@ declare module "knex/types/tables.js" {
     };
     test_run_blueprints: {
       id: BlueprintID;
-      test_ids: BlueprintIDList;
+      test_blueprint_ids: BlueprintIDList;
     };
-    test_runs: UpsertDatesAsString<{
-      blueprint_id: BlueprintID;
-      timestamp: Date;
-      failed_test_ids: BlueprintIDList;
-      branch: string;
-    }>;
+    test_runs: Knex.CompositeTableType<
+      {
+        blueprint_id: BlueprintID;
+        timestamp: Date;
+        result_spec: Buffer;
+        branch: string;
+      },
+      {
+        blueprint_id: BlueprintID;
+        timestamp: string;
+        result_spec?: Buffer;
+        branch?: string;
+      }
+    >;
     prs: UpsertDatesAsString<{
       number: number;
       merged_at: Date;

@@ -24,11 +24,11 @@ async function prs() {
   for await (const pr of github.mergedPRsAfterDesc(
     "electron",
     "electron",
-    latestMergedTime.toInstant(),
+    latestMergedTime,
   )) {
     await createPRIgnoringConflicts({
       number: pr.number,
-      mergedAt: Temporal.Instant.from(pr.mergedAt).toZonedDateTimeISO("UTC"),
+      mergedAt: Temporal.Instant.from(pr.mergedAt),
       status: pr.status,
     });
 

@@ -92,15 +92,19 @@ Data Structures
 ---------------
 
 Test Run Blueprint
-  - Blueprint ID
+  - Blueprint ID:
+    - SHAKE256 hash digest of the following structure:
+      - The "Set of Test Blueprint IDs" sorted in ascending order.
   - Set of Test Blueprint IDs
 
 Test Blueprint
-  - Blueprint ID
+  - Blueprint ID:
+    - SHAKE256 hash digest of the following structure:
+      - Title
   - Title
 
 Test Run
-  - Blueprint ID (reference to Test Run Blueprint)
+  - Blueprint ID (in reference to Test Run Blueprint)
   - Result Spec
     - See "Result Spec" section above.
   - Timestamp

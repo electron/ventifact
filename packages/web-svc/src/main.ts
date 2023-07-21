@@ -71,7 +71,10 @@ namespace PRStatusAnalysis {
 
     for await (const pr of prs) {
       // Determine the date this PR was merged on
-      const date = pr.mergedAt.toPlainDate().toString();
+      const date = pr.mergedAt
+        .toZonedDateTimeISO("UTC")
+        .toPlainDate()
+        .toString();
 
       if (currentBucket === undefined) {
         // If there's no current bucket, then create one

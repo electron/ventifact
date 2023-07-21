@@ -10,7 +10,7 @@ export interface PR {
   /**
    * The date and time that the PR was merged.
    */
-  mergedAt: Temporal.ZonedDateTime;
+  mergedAt: Temporal.Instant;
 
   /**
    * The status of the checks and runs on the PR.
@@ -26,7 +26,7 @@ export async function createPRIgnoringConflicts(pr: PR): Promise<void> {
   await db("prs")
     .insert({
       number: pr.number,
-      merged_at: pr.mergedAt.toInstant().toString(),
+      merged_at: pr.mergedAt.toString(),
       status: pr.status,
     })
     .onConflict("number")
@@ -45,7 +45,7 @@ export async function* streamPRsByMergedAtAsc(): AsyncIterable<PR> {
   for await (const { number, merged_at, status } of prs) {
     yield {
       number,
-      mergedAt: toTemporalInstant.call(merged_at).toZonedDateTimeISO("UTC"),
+      mergedAt: toTemporalInstant.call(merged_at),
       status,
     };
   }
@@ -54,7 +54,7 @@ export async function* streamPRsByMergedAtAsc(): AsyncIterable<PR> {
 /**
  * Gets the time of the most recently merged PR in the database.
  */
-export async function getLatestPRMergedAt(): Promise<Temporal.ZonedDateTime> {
+export async function getLatestPRMergedAt(): Promise<Temporal.Instant> {
   const latestMergedTime = await db("prs")
     .select("merged_at")
     .orderBy("merged_at", "desc")
@@ -65,7 +65,7 @@ export async function getLatestPRMergedAt(): Promise<Temporal.ZonedDateTime> {
     throw new Error("No merged PRs found in the database!");
   }
 
-  return toTemporalInstant.call(latestMergedTime).toZonedDateTimeISO("UTC");
+  return toTemporalInstant.call(latestMergedTime);
 }
 
 /**

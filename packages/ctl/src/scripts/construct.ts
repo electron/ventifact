@@ -2,6 +2,7 @@ import { AppVeyor, CircleCI, GitHub } from "extern-api-lib";
 import { Temporal } from "@js-temporal/polyfill";
 import {
   TestRun,
+  closeDb,
   createPRIgnoringConflicts,
   createTestRun,
   dbSchema,
@@ -16,13 +17,13 @@ async function prs() {
   const github = new GitHub.Client(getEnvVarOrThrow("GITHUB_AUTH_TOKEN"));
 
   console.info("Dropping old PRs table...");
-  await dbSchema.dropTableIfExists("prs");
+  await dbSchema().dropTableIfExists("prs");
   console.info("Dropped old PRs table.");
 
   console.info("Creating new PRs table...");
-  await dbSchema.createTable("prs", (table) => {
+  await dbSchema().createTable("prs", (table) => {
     table.integer("number").primary();
-    table.timestamp("merged_at").notNullable();
+    table.timestamp("merged_at", { useTz: true }).notNullable();
     table
       .enum("status", ["success", "failure", "neutral", "unknown"])
       .notNullable();
@@ -44,7 +45,7 @@ async function prs() {
       // Insert the PR into the database
       await createPRIgnoringConflicts({
         number: pr.number,
-        mergedAt: Temporal.Instant.from(pr.mergedAt).toZonedDateTimeISO("UTC"),
+        mergedAt: Temporal.Instant.from(pr.mergedAt),
         status: pr.status,
       });
 
@@ -61,6 +62,10 @@ async function tests() {
   const appveyor = new AppVeyor.Client(getEnvVarOrThrow("APPVEYOR_AUTH_TOKEN"));
   const circleci = new CircleCI.Client(getEnvVarOrThrow("CIRCLECI_AUTH_TOKEN"));
 
+  const cutoff = Temporal.Now.zonedDateTimeISO("UTC")
+    .subtract({ months: 3 })
+    .toInstant();
+
   async function* getAppVeyorTestRuns(): AsyncGenerator<TestRun> {
     const ACCOUNT_NAME = "electron-bot";
     const PROJECT_SLUGS = [
@@ -72,6 +77,12 @@ async function tests() {
     // TODO: parallelize
     for (const projSlug of PROJECT_SLUGS) {
       for await (const build of appveyor.builds(ACCOUNT_NAME, projSlug)) {
+        // Stop if this build is before the cutoff
+        const timestamp = Temporal.Instant.from(build.created);
+        if (Temporal.Instant.compare(timestamp, cutoff) < 0) {
+          break;
+        }
+
         // Find the test job
         const testJob = build.jobs.find((job) => job.testsCount > 0);
 
@@ -90,7 +101,7 @@ async function tests() {
             title: result.name,
             passed: result.state !== "failed",
           })),
-          timestamp: Temporal.ZonedDateTime.from(build.created),
+          timestamp,
           branch: build.branch,
         };
       }
@@ -104,6 +115,12 @@ async function tests() {
     for await (const pipeline of circleci.pipelines(PROJECT_SLUG)) {
       for await (const workflow of circleci.workflows(pipeline.id)) {
         for await (const job of circleci.jobs(workflow.id)) {
+          // Stop if this build is before the cutoff
+          const timestamp = Temporal.Instant.from(job.started_at);
+          if (Temporal.Instant.compare(timestamp, cutoff) < 0) {
+            break;
+          }
+
           // Skip jobs without a job number
           if (job.job_number === undefined) {
             continue;
@@ -129,7 +146,7 @@ async function tests() {
               title: test.name,
               passed: test.result === "success",
             })),
-            timestamp: Temporal.ZonedDateTime.from(job.started_at),
+            timestamp,
             branch: pipeline.vcs?.branch ?? null,
           };
         }
@@ -138,28 +155,29 @@ async function tests() {
   }
 
   console.info("Dropping old tests tables...");
-  await Promise.all([
-    dbSchema.dropTableIfExists("test_blueprints"),
-    dbSchema.dropTableIfExists("test_run_blueprints"),
-    dbSchema.dropTableIfExists("test_runs"),
-  ]);
+  await dbSchema()
+    .dropTableIfExists("test_runs")
+    .then(() =>
+      Promise.all([
+        dbSchema().dropTableIfExists("test_blueprints"),
+        dbSchema().dropTableIfExists("test_run_blueprints"),
+      ]),
+    );
   console.info("Dropped old tests tables.");
 
   console.info("Creating new tests tables...");
   await Promise.all([
-    dbSchema.createTable("test_blueprints", (table) => {
-      table.bigInteger("blueprint_id").primary();
+    dbSchema().createTable("test_blueprints", (table) => {
+      table.bigInteger("id").primary();
       table.string("title").notNullable();
     }),
-    dbSchema.createTable("test_run_blueprints", (table) => {
-      table.bigInteger("blueprint_id").primary();
+    dbSchema().createTable("test_run_blueprints", (table) => {
+      table.bigInteger("id").primary();
       table.binary("test_blueprint_ids").notNullable();
     }),
   ]).then(() =>
-    dbSchema.createTable("test_runs", (table) => {
-      table
-        .bigInteger("blueprint_id")
-        .references("test_run_blueprints.blueprint_id");
+    dbSchema().createTable("test_runs", (table) => {
+      table.bigInteger("blueprint_id").references("test_run_blueprints.id");
       table.timestamp("timestamp").notNullable();
       table.binary("result_spec").nullable();
       table.string("branch").nullable();
@@ -176,21 +194,26 @@ async function tests() {
     for await (const testRun of getAppVeyorTestRuns()) {
       await createTestRun(testRun);
       console.debug(
-        `Inserted AppVeyor test run from ${testRun.timestamp} on branch '${testRun.branch}' with ${testRun.results.length} tests.`,
+        `Inserted AppVeyor test run from ${testRun.timestamp} on ` +
+          `branch '${testRun.branch}' with ${testRun.results.length} tests.`,
       );
     }
     for await (const testRun of getCircleCITestRuns()) {
       await createTestRun(testRun);
       console.debug(
-        `Inserted CircleCI test run from ${testRun.timestamp} on branch '${testRun.branch}' with ${testRun.results.length} tests.`,
+        `Inserted CircleCI test run from ${testRun.timestamp} on ` +
+          `branch '${testRun.branch}' with ${testRun.results.length} tests.`,
       );
     }
   }
   console.info("Populated new tests tables.");
 }
 
-Promise.all([prs() /* TODO: tests() */])
-  .then(() => console.info("Done."))
+Promise.all([prs(), tests()])
+  .then(() => {
+    console.info("Done, closing database.");
+    closeDb();
+  })
   .catch((err) => {
     console.error("Failed to construct database.");
     console.error(err);
