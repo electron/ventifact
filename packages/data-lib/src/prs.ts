@@ -22,7 +22,7 @@ export interface PR {
  * Creates a new blueprint in the database, ignoring if a PR with the same
  * number already exists.
  */
-export async function createPRIgnoringConflicts(pr: PR): Promise<void> {
+export async function insertPR(pr: PR): Promise<void> {
   await db("prs")
     .insert({
       number: pr.number,

@@ -52,6 +52,7 @@ export async function parseBuildLog(
 ): Promise<BuildLogTest[]> {
   const tests: BuildLogTest[] = [];
 
+  let numberMismatch = false;
   for await (const rawLine of lines(buildLogChunks)) {
     const line = withoutTimestamp(rawLine);
 
@@ -68,13 +69,17 @@ export async function parseBuildLog(
       // Double check the test number, just in case
       const testNumber = parseInt(match[2], 10);
       if (tests.length + 1 !== testNumber) {
-        console.warn(
-          `Test number mismatch: expected ${testNumber} vs actual ${tests.length}`,
-        );
+        numberMismatch = true;
       }
 
       tests.push({ name, state });
     }
+  }
+
+  if (numberMismatch) {
+    console.warn(
+      "Test numbers in build log did not match the number of tests parsed.",
+    );
   }
 
   return tests;

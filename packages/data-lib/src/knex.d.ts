@@ -1,5 +1,4 @@
 import { Knex } from "knex";
-import { BlueprintID, BlueprintIDList } from "./tests.ts";
 
 /**
  * Given a table with `Date` fields, converts it to accept `string` values for
@@ -20,25 +19,27 @@ type UpsertDatesAsString<T> = Knex.CompositeTableType<
 declare module "knex/types/tables.js" {
   interface Tables {
     test_blueprints: {
-      id: BlueprintID;
+      id: string;
       title: string;
     };
     test_run_blueprints: {
-      id: BlueprintID;
-      test_blueprint_ids: BlueprintIDList;
+      id: string;
+      test_blueprint_ids: Buffer;
     };
     test_runs: Knex.CompositeTableType<
       {
-        blueprint_id: BlueprintID;
+        id: Buffer;
+        blueprint_id: string;
         timestamp: Date;
-        result_spec: Buffer;
         branch: string;
+        result_spec: Buffer;
       },
       {
-        blueprint_id: BlueprintID;
+        id: Buffer;
+        blueprint_id: string;
         timestamp: string;
-        result_spec?: Buffer;
         branch?: string;
+        result_spec?: Buffer;
       }
     >;
     prs: UpsertDatesAsString<{

@@ -1,0 +1,14 @@
+{
+  "name": "format-lib",
+  "packageManager": "yarn@3.5.1",
+  "type": "module",
+  "main": "build/lib.js",
+  "types": "build/lib.d.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/node": "^20.2.5",
+    "typescript": "^5.0.4"
+  }
+}

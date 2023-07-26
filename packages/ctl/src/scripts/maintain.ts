@@ -1,8 +1,4 @@
-import {
-  createPRIgnoringConflicts,
-  deleteMergedPRsBefore,
-  getLatestPRMergedAt,
-} from "data-lib";
+import { insertPR, deleteMergedPRsBefore, getLatestPRMergedAt } from "data-lib";
 import { GitHub } from "extern-api-lib";
 import { Temporal } from "@js-temporal/polyfill";
 import { getEnvVarOrThrow } from "../env-var.js";
@@ -26,7 +22,7 @@ async function prs() {
     "electron",
     latestMergedTime,
   )) {
-    await createPRIgnoringConflicts({
+    await insertPR({
       number: pr.number,
       mergedAt: Temporal.Instant.from(pr.mergedAt),
       status: pr.status,

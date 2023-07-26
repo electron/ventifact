@@ -825,6 +825,7 @@ __metadata:
     "@types/node": ^20.2.5
     data-lib: "workspace:*"
     extern-api-lib: "workspace:*"
+    format-lib: "workspace:*"
     typescript: ^5.0.4
   languageName: unknown
   linkType: soft
@@ -1234,6 +1235,15 @@ __metadata:
   checksum: e0b3e5950fb69b3f32c273944620f9861f1933df9d3e42066e038e26dfb343d0f4465de9f27e0ead1a09d9df20bc2eed06a63c2ca2f8f00949e7202bae9e29dd
   languageName: node
   linkType: hard
+
+"format-lib@workspace:*, format-lib@workspace:packages/format-lib":
+  version: 0.0.0-use.local
+  resolution: "format-lib@workspace:packages/format-lib"
+  dependencies:
+    "@types/node": ^20.2.5
+    typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
 
 "forwarded@npm:0.2.0":
   version: 0.2.0

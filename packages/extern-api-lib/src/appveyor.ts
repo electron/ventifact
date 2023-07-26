@@ -12,15 +12,15 @@ export class Client {
     });
   }
 
-  builds(
+  projBuildHistory(
     accountName: string,
     projectSlug: string,
-  ): AsyncIterableIterator<Build> {
+  ): AsyncIterableIterator<HistoryBuild> {
     interface ProjHistory {
-      builds: Build[];
+      builds: HistoryBuild[];
     }
 
-    return this.#http.paginate<Build, ProjHistory>(
+    return this.#http.paginate<HistoryBuild, ProjHistory>(
       `projects/${accountName}/${projectSlug}/history`,
       {
         responseType: "json",
@@ -50,6 +50,21 @@ export class Client {
     );
   }
 
+  build(
+    accountName: string,
+    projectSlug: string,
+    buildId: number,
+  ): Promise<Build> {
+    interface BuildResponse {
+      build: Build;
+    }
+
+    return this.#http
+      .get(`projects/${accountName}/${projectSlug}/builds/${buildId}`)
+      .json<BuildResponse>()
+      .then((resp) => resp.build);
+  }
+
   buildJobLogStream(jobId: string): Request {
     return this.#http.get(`buildjobs/${jobId}/log`, {
       responseType: "text",
@@ -63,7 +78,16 @@ export interface Build {
   jobs: Job[];
   branch: string;
   created: string;
+  status: string; // "success" | "failed" | "queued" | "running" | "cancelled", maybe more
 }
+
+/**
+ * A build from the build history list in a project.
+ *
+ * This object is notably different from the full build object in that it does
+ * not return information about the jobs in the build.
+ */
+export type HistoryBuild = Omit<Build, "jobs">;
 
 export interface Job {
   jobId: string;
