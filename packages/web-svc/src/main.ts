@@ -1,9 +1,11 @@
-import { PR, streamPRsByMergedAtAsc } from "data-lib";
+import { PR, TestRun, createTestRun, streamPRsByMergedAtAsc } from "data-lib";
+import { JUnit, Test } from "format-lib";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import { Temporal } from "@js-temporal/polyfill";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomBytes } from "node:crypto";
 
 const server = Fastify({
   logger:
@@ -146,6 +148,54 @@ server.get("/api/merged-pr-statuses", async (_, reply) => {
 
   // Return the analysis
   reply.send(result);
+});
+
+server.put("/api/junit", async (request, reply) => {
+  // TODO: authenticate the request
+
+  // Check that the content type is XML
+  if (request.headers["content-type"] !== "application/xml") {
+    reply.status(400).send("Expected content-type: application/xml");
+    return;
+  }
+
+  // Validate that the request sent a string body
+  if (typeof request.body !== "string" || request.body.length === 0) {
+    reply.status(400).send("Expected body");
+    return;
+  }
+
+  // Parse the JUnit XML, handling any errors
+  let tests: Test[];
+  try {
+    tests = await JUnit.parse(request.body);
+  } catch (err) {
+    // aside: technically this can be 400 too if the XML is misencoded, but /shrug
+    reply.status(422);
+    return;
+  }
+
+  // TODO: get the test run id, timestamp, and branch from the request
+  const id: TestRun["id"] = {
+    source: "unknown",
+    id: randomBytes(8),
+  };
+  const timestamp = Temporal.Now.instant();
+  const branch: string | undefined = undefined;
+
+  // Insert the tests into the database
+  await createTestRun({
+    id,
+    results: tests.map(({ name, state }) => ({
+      title: name,
+      passed: state === "passed",
+    })),
+    timestamp,
+    branch,
+  });
+
+  // Return a 201 Created response
+  reply.status(201);
 });
 
 const port = parseInt(process.env.PORT!) || 3000;

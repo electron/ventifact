@@ -12,6 +12,9 @@
   "references": [
     {
       "path": "../data-lib"
+    },
+    {
+      "path": "../format-lib"
     }
   ]
 }

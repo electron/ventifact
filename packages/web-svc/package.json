@@ -10,7 +10,8 @@
     "@fastify/static": "^6.10.2",
     "@js-temporal/polyfill": "^0.4.4",
     "data-lib": "workspace:*",
-    "fastify": "^4.17.0"
+    "fastify": "^4.17.0",
+    "format-lib": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.2.5",

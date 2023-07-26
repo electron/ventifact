@@ -3233,6 +3233,7 @@ __metadata:
     "@types/node": ^20.2.5
     data-lib: "workspace:*"
     fastify: ^4.17.0
+    format-lib: "workspace:*"
     pino-pretty: ^10.0.0
     typescript: ^5.0.4
   languageName: unknown
