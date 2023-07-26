@@ -1,3 +1,5 @@
+import { Test } from "./lib.js";
+
 /**
  * Split a stream of string chunks into separate lines.
  */
@@ -41,16 +43,11 @@ function withoutTimestamp(line: string): string {
   }
 }
 
-export interface BuildLogTest {
-  name: string;
-  state: "passed" | "failed" | "skipped";
-}
-
 const TEST_LINE = /^(ok|not ok) (\d+) (.*)( # SKIP -)?$/;
-export async function parseBuildLog(
+export async function parse(
   buildLogChunks: AsyncIterable<string>,
-): Promise<BuildLogTest[]> {
-  const tests: BuildLogTest[] = [];
+): Promise<Test[]> {
+  const tests: Test[] = [];
 
   let numberMismatch = false;
   for await (const rawLine of lines(buildLogChunks)) {

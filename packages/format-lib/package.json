@@ -10,5 +10,8 @@
   "devDependencies": {
     "@types/node": "^20.2.5",
     "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "junitxml-to-javascript": "^1.1.4"
   }
 }

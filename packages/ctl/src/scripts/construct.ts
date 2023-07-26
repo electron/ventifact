@@ -1,7 +1,7 @@
 import { AppVeyor, CircleCI, GitHub } from "extern-api-lib";
 import { Temporal } from "@js-temporal/polyfill";
 import { TestRun, closeDb, insertPR, createTestRun, dbSchema } from "data-lib";
-import { parseBuildLog } from "format-lib";
+import { BuildLog } from "format-lib";
 import { getEnvVarOrThrow } from "../env-var.js";
 
 /**
@@ -114,7 +114,7 @@ async function tests() {
 
         // Get the test results from the build log
         const testJobLogStream = appveyor.buildJobLogStream(testJob.jobId);
-        const logTestResults = await parseBuildLog(testJobLogStream);
+        const logTestResults = await BuildLog.parse(testJobLogStream);
 
         // Convert the build log results and metadata into a TestRun
         yield {

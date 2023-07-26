@@ -1241,6 +1241,7 @@ __metadata:
   resolution: "format-lib@workspace:packages/format-lib"
   dependencies:
     "@types/node": ^20.2.5
+    junitxml-to-javascript: ^1.1.4
     typescript: ^5.0.4
   languageName: unknown
   linkType: soft
@@ -1651,6 +1652,15 @@ __metadata:
   version: 1.0.0
   resolution: "json-schema-traverse@npm:1.0.0"
   checksum: 02f2f466cdb0362558b2f1fd5e15cce82ef55d60cd7f8fa828cf35ba74330f8d767fcae5c5c2adb7851fa811766c694b9405810879bc4e1ddd78a7c0e03658ad
+  languageName: node
+  linkType: hard
+
+"junitxml-to-javascript@npm:^1.1.4":
+  version: 1.1.4
+  resolution: "junitxml-to-javascript@npm:1.1.4"
+  dependencies:
+    xml2js-parser: ^1.1.1
+  checksum: b2e603edf5d6f79c389dc8894c3f000050317d45c4544ec44a327d3343941d115aec35727b7de495df1fbd2fa6fadae0b976c9f1fcef9a54f1703b3ceb36be0f
   languageName: node
   linkType: hard
 
@@ -2749,6 +2759,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"sax@npm:^1.2.1":
+  version: 1.2.4
+  resolution: "sax@npm:1.2.4"
+  checksum: d3df7d32b897a2c2f28e941f732c71ba90e27c24f62ee918bd4d9a8cfb3553f2f81e5493c7f0be94a11c1911b643a9108f231dd6f60df3fa9586b5d2e3e9e1fe
+  languageName: node
+  linkType: hard
+
 "secure-json-parse@npm:^2.4.0, secure-json-parse@npm:^2.5.0":
   version: 2.7.0
   resolution: "secure-json-parse@npm:2.7.0"
@@ -3245,6 +3262,15 @@ __metadata:
   version: 1.0.2
   resolution: "wrappy@npm:1.0.2"
   checksum: 159da4805f7e84a3d003d8841557196034155008f817172d4e986bd591f74aa82aa7db55929a54222309e01079a65a92a9e6414da5a6aa4b01ee44a511ac3ee5
+  languageName: node
+  linkType: hard
+
+"xml2js-parser@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "xml2js-parser@npm:1.1.1"
+  dependencies:
+    sax: ^1.2.1
+  checksum: 5df216d67e66632c17dc0fe613e22abcd0e8676b039c2d080a1c9d6838f4dc9c2c666759887d80a3c879c855db5f9a11c34d76f2a166ade5fa09c9f33bcf47f1
   languageName: node
   linkType: hard
 

@@ -5,8 +5,6 @@ import { Temporal } from "@js-temporal/polyfill";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// TODO: parse JUnit XML submissions using @xml-tools/parser
-
 const server = Fastify({
   logger:
     {
