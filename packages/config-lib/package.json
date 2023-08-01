@@ -1,5 +1,5 @@
 {
-  "name": "data-lib",
+  "name": "config-lib",
   "packageManager": "yarn@3.5.1",
   "type": "module",
   "main": "build/lib.js",
@@ -9,14 +9,9 @@
   },
   "devDependencies": {
     "@types/node": "^20.2.5",
-    "@types/pg": "^8",
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "@js-temporal/polyfill": "^0.4.4",
-    "config-lib": "workspace:*",
-    "pg": "^8.11.0",
-    "pg-pool": "^3.6.1",
-    "pg-query-stream": "^4.5.0"
+    "@js-temporal/polyfill": "0.4.4"
   }
 }

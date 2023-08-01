@@ -1,10 +1,11 @@
-import { Temporal } from "@js-temporal/polyfill";
+import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
 import { createHash } from "crypto";
-import { db } from "./db.js";
+import { db, transaction } from "./db.js";
+import { Tables } from "./db-schema.js";
+import QueryStream from "pg-query-stream";
 
 export interface TestRun {
   id:
-    | { source: "unknown"; id: Buffer }
     | { source: "appveyor"; buildId: number }
     | { source: "circleci"; jobId: number };
   results: TestResult[];
@@ -42,13 +43,6 @@ export class BlueprintID {
   }
 
   /**
-   * Convert this Blueprint ID to a string suitable for use in the database.
-   */
-  toDbId(): string {
-    return this.toInt64().toString(10);
-  }
-
-  /**
    * Retrieve the raw buffer for this Blueprint ID.
    */
   asBuffer(): Buffer {
@@ -65,6 +59,41 @@ export class BlueprintIDList {
   }
 
   /**
+   * Parses a list of Blueprint IDs from a buffer of concatenated Blueprint IDs.
+   */
+  static fromConcatenatedBuffer(buffer: Buffer): BlueprintIDList {
+    // Ensure the buffer is a multiple of the expected size
+    if (buffer.length % BLUEPRINT_ID_BUFFER_SIZE !== 0) {
+      throw new Error("Expected a multiple of 8 bytes");
+    }
+
+    // Parse the buffer into individual Blueprint IDs
+    const ids = [];
+    for (let i = 0; i < buffer.length; i += BLUEPRINT_ID_BUFFER_SIZE) {
+      ids.push(
+        new BlueprintID(buffer.subarray(i, i + BLUEPRINT_ID_BUFFER_SIZE)),
+      );
+    }
+
+    return new BlueprintIDList(ids);
+  }
+
+  /**
+   * Create a buffer containing the concatenation of all the Blueprint IDs in
+   * this list.
+   */
+  toConcatenatedBuffer(): Buffer {
+    return Buffer.concat(this.#ids.map((id) => id.asBuffer()));
+  }
+
+  /**
+   * Iterates over each Blueprint ID in this list.
+   */
+  [Symbol.iterator](): IterableIterator<BlueprintID> {
+    return this.#ids[Symbol.iterator]();
+  }
+
+  /**
    * Derive a blueprint ID for this list.
    */
   deriveBlueprintID(): BlueprintID {
@@ -76,14 +105,6 @@ export class BlueprintIDList {
         )
         .digest(),
     );
-  }
-
-  /**
-   * Create a buffer containing the concatenation of all the Blueprint IDs in
-   * this list.
-   */
-  toConcatenatedBuffer(): Buffer {
-    return Buffer.concat(this.#ids.map((id) => id.asBuffer()));
   }
 }
 
@@ -143,118 +164,192 @@ function encodeResultSpec(results: TestResult[]): Buffer | undefined {
   return result;
 }
 
-function encodeTestRunID(id: TestRun["id"]): Buffer {
-  const contentLength = id.source === "unknown" ? id.id.length : 4;
-  const result = Buffer.alloc(1 + contentLength);
-
-  // Encode the source tag
-  switch (id.source) {
-    case "unknown":
-      result.writeUInt8(0);
-      break;
-    case "appveyor":
-      result.writeUInt8(1);
-      break;
-    case "circleci":
-      result.writeUInt8(2);
-      break;
-  }
-
-  // Encode the content
-  switch (id.source) {
-    case "unknown":
-      id.id.copy(result, 1);
-      break;
-    case "appveyor":
-      result.writeUInt32BE(id.buildId, 1);
-      break;
-    case "circleci":
-      result.writeUInt32BE(id.jobId, 1);
-      break;
-  }
-
-  return result;
-}
-
-/**
- * A set of known test blueprint IDs, used to avoid unnecessary database
- * queries and inserts when possible.
- */
-const KNOWN_TEST_BLUEPRINT_IDS = new Set<bigint>();
-
-/**
- * Ensures that the given test blueprints exist in the database. Only test
- * blueprints that are not already known to exist will be inserted.
- */
-async function ensureTestBlueprintsExist(
-  blueprints: { id: BlueprintID; title: string }[],
-): Promise<void> {
-  const unknownBlueprints = blueprints.filter(
-    ({ id }) => !KNOWN_TEST_BLUEPRINT_IDS.has(id.toInt64()),
-  );
-
-  // If all of the blueprints are known, we can skip the database query 🎉
-  if (unknownBlueprints.length === 0) {
-    return;
-  }
-
-  // Insert the unknown blueprints
-  await db("test_blueprints")
-    .insert(
-      blueprints.map(({ id, title }) => ({
-        id: id.toDbId(),
-        title,
-      })),
-    )
-    .onConflict("id")
-    .ignore();
-
-  // Add the new blueprints to the known set
-  for (const { id } of unknownBlueprints) {
-    KNOWN_TEST_BLUEPRINT_IDS.add(id.toInt64());
-  }
-}
-
 /**
  * Creates a test run in the database.
  */
 export async function createTestRun(testRun: TestRun): Promise<void> {
-  // As a heuristic, ensure these are Electron tests by checking for a test that
-  // includes "BrowserWindow", the giveaway of an Electron test run.
-  if (!testRun.results.some(({ title }) => title.includes("BrowserWindow"))) {
-    console.debug("Ignoring non-Electron test run");
-    return;
-  }
-
   const testBlueprints = testRun.results.map(({ title }) => ({
     id: deriveBlueprintIDForTestBlueprint(title),
     title,
   }));
-
-  // Ensure the test blueprints exist in the database, inserting them if needed
-  await ensureTestBlueprintsExist(testBlueprints);
-
-  // Insert the test run blueprint
   const blueprintIDs = new BlueprintIDList(testBlueprints.map(({ id }) => id));
-  const testRunBlueprintIDStr = blueprintIDs.deriveBlueprintID().toDbId();
+  const testRunBlueprintID = blueprintIDs.deriveBlueprintID();
 
-  await db("test_run_blueprints")
-    .insert({
-      id: testRunBlueprintIDStr,
-      test_blueprint_ids: blueprintIDs.toConcatenatedBuffer(),
-    })
-    .onConflict("id")
-    .ignore();
+  // Create the test run safely in a transaction
+  await transaction(async (db) => {
+    // Insert the test blueprints and test run blueprint
+    await Promise.all([
+      db.query({
+        text:
+          "INSERT INTO test_blueprints (id, title) " +
+          `VALUES ${testBlueprints
+            .map((_, i) => `($${2 * i + 1}, $${2 * i + 2})`)
+            .join(",")} ` +
+          "ON CONFLICT (id) DO NOTHING",
+        values: testBlueprints.flatMap(({ id, title }) => [
+          id.toInt64(),
+          title,
+        ]),
+      }),
+      db.query({
+        text:
+          "INSERT INTO test_run_blueprints (id, test_blueprint_ids) " +
+          "VALUES ($1, $2) " +
+          "ON CONFLICT (id) DO NOTHING",
+        values: [
+          testRunBlueprintID.toInt64(),
+          blueprintIDs.toConcatenatedBuffer(),
+        ],
+      }),
+    ]);
 
-  // Insert the test run
-  await db("test_runs")
-    .insert({
-      id: encodeTestRunID(testRun.id),
-      blueprint_id: testRunBlueprintIDStr,
-      timestamp: testRun.timestamp.toString(),
-      branch: testRun.branch ?? undefined,
-      result_spec: encodeResultSpec(testRun.results),
-    })
-    .onConflict("id")
-    .ignore();
+    // Insert the test run
+    await db.query({
+      text:
+        "INSERT INTO test_runs (source, ext_id, blueprint_id, timestamp, branch, result_spec) " +
+        "VALUES ($1, $2, $3, $4, $5, $6) " +
+        "ON CONFLICT (source, ext_id) DO NOTHING",
+      values: [
+        testRun.id.source,
+        testRun.id.source === "appveyor"
+          ? testRun.id.buildId
+          : testRun.id.jobId,
+        testRunBlueprintID.toInt64(),
+        testRun.timestamp.toString(),
+        testRun.branch ?? undefined,
+        encodeResultSpec(testRun.results),
+      ],
+    });
+  });
+}
+
+/**
+ * Deletes all test runs before the given cutoff, including cleaning up any
+ * associated blueprints that are no longer referenced.
+ */
+export async function deleteTestRunsBefore(
+  cutoff: Temporal.Instant,
+): Promise<number> {
+  return await transaction(async (db) => {
+    // Find the test run blueprints that will become orphaned once the test
+    // runs are deleted
+    const orphanedTestRunBlueprints = await db.query<
+      Tables["test_run_blueprints"] & { num_test_runs: number }
+    >({
+      text: `
+        SELECT num_test_runs, blueprint_id, test_blueprint_ids
+        FROM (
+          SELECT expired_test_runs.blueprint_id, COUNT(*) AS num_test_runs
+          FROM (
+            SELECT blueprint_id, timestamp
+            FROM test_runs
+            WHERE timestamp < $1
+          ) expired_test_runs
+          LEFT JOIN test_runs
+            ON test_runs.blueprint_id = expired_test_runs.blueprint_id
+          GROUP BY expired_test_runs.blueprint_id
+        ) q
+        LEFT JOIN test_run_blueprints
+          ON test_run_blueprints.id = q.blueprint_id
+        WHERE q.num_test_runs <= 1
+      `,
+      values: [cutoff.toString()],
+    });
+
+    // Delete the test expired runs, which must be done before deleting the
+    // corresponding blueprints that reference them
+    const testRunsDeletedResult = await db.query({
+      text: "DELETE FROM test_runs WHERE timestamp < $1",
+      values: [cutoff.toString()],
+    });
+
+    // Handle the test blueprints in any orphaned test run blueprints
+    if (orphanedTestRunBlueprints.rowCount > 0) {
+      // Figure out all the potentially-orphaned test blueprints
+      const potentiallyOrphanedTestBlueprintIDs = new Set<bigint>();
+      for (const { test_blueprint_ids } of orphanedTestRunBlueprints.rows) {
+        const blueprintIDs =
+          BlueprintIDList.fromConcatenatedBuffer(test_blueprint_ids);
+        for (const id of blueprintIDs) {
+          potentiallyOrphanedTestBlueprintIDs.add(id.toInt64());
+        }
+      }
+
+      // Try to eliminate every potentially-orphaned test blueprint by finding
+      // if there exists any other test run blueprint that references it
+      const stream = new QueryStream(
+        "SELECT id, test_blueprint_ids FROM test_run_blueprints " +
+          "WHERE id <> ALL ($1)",
+        [orphanedTestRunBlueprints.rows.map(({ id }) => id)],
+      );
+      const streamQuery = db.query(stream) as AsyncIterable<
+        Tables["test_run_blueprints"]
+      >;
+
+      for await (const { test_blueprint_ids } of streamQuery) {
+        // Remove all of this test run blueprint's test blueprint IDs from the
+        // set of potentially-orphaned test blueprints
+        const blueprintIDs =
+          BlueprintIDList.fromConcatenatedBuffer(test_blueprint_ids);
+        for (const id of blueprintIDs) {
+          potentiallyOrphanedTestBlueprintIDs.delete(id.toInt64());
+        }
+
+        // If the set is now empty, we can stop early
+        if (potentiallyOrphanedTestBlueprintIDs.size === 0) {
+          break;
+        }
+      }
+
+      // Delete the identified orphaned test blueprints
+      if (potentiallyOrphanedTestBlueprintIDs.size > 0) {
+        await db.query({
+          text: "DELETE FROM test_blueprints WHERE id = ANY ($1)",
+          values: [Array.from(potentiallyOrphanedTestBlueprintIDs)],
+        });
+      }
+
+      // Delete the identified orphaned test run blueprints
+      await db.query({
+        text: "DELETE FROM test_run_blueprints WHERE id = ANY ($1)",
+        values: [orphanedTestRunBlueprints.rows.map(({ id }) => id)],
+      });
+    }
+
+    return testRunsDeletedResult.rowCount;
+  });
+}
+
+/**
+ * Find the latest test run timestamp for the given source type and returns it.
+ */
+export async function getLatestTestRunTimestampForSource(
+  source: TestRun["id"]["source"],
+): Promise<Temporal.Instant | undefined> {
+  const latestTimestampQuery = await db.query<Date[]>({
+    text: "SELECT MAX(timestamp) FROM test_runs WHERE source = $1",
+    values: [source],
+    rowMode: "array",
+  });
+  const latestTimestamp = latestTimestampQuery.rows[0]?.[0];
+
+  if (latestTimestamp === undefined) {
+    return undefined;
+  }
+
+  return toTemporalInstant.call(latestTimestamp);
+}
+
+/**
+ * Checks if the given test run exists in the database.
+ */
+export async function checkTestRunExistsById(
+  id: TestRun["id"],
+): Promise<boolean> {
+  const result = await db.query({
+    text: "SELECT 1 FROM test_runs WHERE source = $1 AND ext_id = $2",
+    values: [id.source, id.source === "appveyor" ? id.buildId : id.jobId],
+  });
+
+  return result.rowCount > 0;
 }

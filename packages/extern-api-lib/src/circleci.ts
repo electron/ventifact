@@ -45,19 +45,28 @@ export class Client {
     });
   }
 
-  pipelines(projectSlug: string): AsyncIterableIterator<Pipeline> {
+  /**
+   * Fetches pipelines for the given project in descending order by creation
+   * time.
+   */
+  pipelinesByCreationDesc(
+    projectSlug: string,
+  ): AsyncIterableIterator<Pipeline> {
+    // NOTE: This endpoint doesn't guarantee it will return pipelines in any
+    // particular order, but in practice it seems to return them in descending
+    // order by creation time, so this is the best option we have.
     return this.#paginate(`project/${projectSlug}/pipeline`);
   }
 
-  workflows(pipelineId: string): AsyncIterableIterator<Workflow> {
+  workflowsInPipeline(pipelineId: string): AsyncIterableIterator<Workflow> {
     return this.#paginate(`pipeline/${pipelineId}/workflow`);
   }
 
-  jobs(workflowId: string): AsyncIterableIterator<Job> {
+  jobsInWorkflow(workflowId: string): AsyncIterableIterator<Job> {
     return this.#paginate(`workflow/${workflowId}/job`);
   }
 
-  testMetadata(
+  testMetadataInJob(
     projectSlug: string,
     jobNum: number,
   ): AsyncIterableIterator<TestMetadata> {
@@ -67,6 +76,8 @@ export class Client {
 
 export interface Pipeline {
   id: string;
+  state: "created" | "errored" | "setup-pending" | "setup" | "pending";
+  created_at: string;
   vcs?: {
     branch?: string;
   };
@@ -75,6 +86,16 @@ export interface Pipeline {
 export interface Workflow {
   id: string;
   name: string;
+  status:
+    | "success"
+    | "running"
+    | "not_run"
+    | "failed"
+    | "error"
+    | "failing"
+    | "on_hold"
+    | "canceled"
+    | "unauthorized";
 }
 
 export interface Job {

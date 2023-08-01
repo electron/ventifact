@@ -1,39 +1,41 @@
-import knexPkg, { Knex } from "knex";
-const { knex } = knexPkg;
+import { Config } from "config-lib";
+import pg from "pg";
 
-// Determine the URL to connect to the database
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is not set");
-}
-
-export const db = knex({
-  client: "pg",
-  connection: {
-    connectionString: process.env.DATABASE_URL,
-    ...(process.env.NODE_ENV === "production"
-      ? {
-          ssl: {
-            rejectUnauthorized: false,
-          },
-        }
-      : {}),
-  },
-  pool: {
-    // note: these numbers have been chosen arbitrarily
-    min: 0,
-    max: 7,
-  },
+export const db = new pg.Pool({
+  connectionString: Config.DATABASE_URL(),
+  ...(process.env.NODE_ENV === "production"
+    ? {
+        ssl: {
+          rejectUnauthorized: false,
+        },
+      }
+    : {}),
+  // note: these numbers have been chosen arbitrarily
+  min: 0,
+  max: 7,
 });
 
-export function dbSchema(): Knex.SchemaBuilder {
-  // DO NOT REFACTOR THIS INTO A CONSTANT!
-  //
-  // `db.schema` is actually a property accessor that returns a new instance of
-  // `Knex.SchemaBuilder` every time it's called, which causes race conditions
-  // when used multiple times--which is very bad!!
-  return db.schema;
+/**
+ * Safely runs a database transaction, rolling back the transaction if an error
+ * is thrown.
+ */
+export async function transaction<T>(
+  closure: (db: pg.PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await closure(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
-export async function closeDb() {
-  return db.destroy();
+export function closeDb(): Promise<void> {
+  return db.end();
 }

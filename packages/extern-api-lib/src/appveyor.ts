@@ -12,7 +12,11 @@ export class Client {
     });
   }
 
-  projBuildHistory(
+  /**
+   * Fetches the latest builds for the given project in descending order by
+   * updated time.
+   */
+  buildHistoryByUpdatedDesc(
     accountName: string,
     projectSlug: string,
   ): AsyncIterableIterator<HistoryBuild> {
@@ -20,6 +24,9 @@ export class Client {
       builds: HistoryBuild[];
     }
 
+    // NOTE: This endpoint doesn't guarantee it will return builds in any
+    // particular order, but in practice it seems to return them in descending
+    // order by updated time, so this is the best option we have.
     return this.#http.paginate<HistoryBuild, ProjHistory>(
       `projects/${accountName}/${projectSlug}/history`,
       {
@@ -77,7 +84,7 @@ export interface Build {
   buildId: number;
   jobs: Job[];
   branch: string;
-  created: string;
+  updated: string;
   status: string; // "success" | "failed" | "queued" | "running" | "cancelled", maybe more
 }
 

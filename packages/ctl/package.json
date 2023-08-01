@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.4.4",
+    "config-lib": "workspace:*",
     "data-lib": "workspace:*",
     "extern-api-lib": "workspace:*",
     "format-lib": "workspace:*"

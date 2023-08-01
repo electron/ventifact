@@ -4,4 +4,3 @@ export interface Test {
 }
 
 export * as BuildLog from "./build-log.js";
-export * as JUnit from "./junit-xml.js";

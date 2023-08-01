@@ -1,4 +1,3 @@
-import { Temporal } from "@js-temporal/polyfill";
 import got, { Got } from "got";
 
 export class Client {
@@ -60,15 +59,9 @@ export class Client {
   }
 
   /**
-   * Yields a stream of merged pull requests, starting with the most recently
-   * merged PR and ending when the cutoff is reached or the list of merged PRs
-   * is exhausted.
+   * Iterates over merged pull requests in desceding order of last update time.
    */
-  mergedPRsAfterDesc(
-    owner: string,
-    repo: string,
-    after: Temporal.Instant,
-  ): AsyncIterableIterator<MergedPR> {
+  mergedPRsDesc(owner: string, repo: string): AsyncIterableIterator<MergedPR> {
     interface QueryResponse {
       data: {
         repository: {
@@ -147,82 +140,62 @@ export class Client {
         owner,
         repo,
       },
-      (response: QueryResponse) => {
-        // If the oldest PR is before the cutoff, then stop paginating
-        const oldestPRUpdatedAt =
-          response.data.repository.pullRequests.nodes[0]?.updatedAt;
-        if (
-          oldestPRUpdatedAt === undefined ||
-          Temporal.Instant.compare(oldestPRUpdatedAt, after) < 0
-        ) {
-          return false;
-        }
-
-        // Continue paginating using the cursor provided in the response
-        return {
-          owner,
-          repo,
-          cursor: response.data.repository.pullRequests.pageInfo.endCursor,
-        };
-      },
-      (response: QueryResponse) => {
+      ({
+        data: {
+          repository: {
+            pullRequests: {
+              pageInfo: { hasNextPage, endCursor },
+            },
+          },
+        },
+      }) =>
+        hasNextPage
+          ? {
+              owner,
+              repo,
+              cursor: endCursor,
+            }
+          : false,
+      ({
+        data: {
+          repository: {
+            pullRequests: { nodes },
+          },
+        },
+      }) => {
         // Edge case: if there are no PRs, return an empty list
-        if (response.data.repository.pullRequests.nodes.length === 0) {
+        if (nodes.length === 0) {
           return [];
         }
 
-        // Get the PRs and their update times from the response
-        const prs: {
-          pr: MergedPR;
-          updatedAt: string;
-        }[] = response.data.repository.pullRequests.nodes.map(
-          ({ number, mergedAt, updatedAt, commits }) => {
-            // Determine the status of the PR
-            let status: MergedPR["status"];
-            switch (commits.nodes[0]?.commit.statusCheckRollup?.state) {
-              case "SUCCESS":
-                status = "success";
-                break;
-              case "FAILURE":
-              case "ERROR":
-                status = "failure";
-                break;
-              case "PENDING":
-              case "EXPECTED":
-                status = "neutral";
-                break;
-              default:
-                status = "unknown";
-                break;
-            }
+        // Convert the PR nodes to our own merged PR format
+        return nodes.map(({ number, mergedAt, updatedAt, commits }) => {
+          // Determine the status of the PR
+          let status: MergedPR["status"];
+          switch (commits.nodes[0]?.commit.statusCheckRollup?.state) {
+            case "SUCCESS":
+              status = "success";
+              break;
+            case "FAILURE":
+            case "ERROR":
+              status = "failure";
+              break;
+            case "PENDING":
+            case "EXPECTED":
+              status = "neutral";
+              break;
+            default:
+              status = "unknown";
+              break;
+          }
 
-            return {
-              pr: {
-                number,
-                mergedAt,
-                status,
-              },
-              updatedAt,
-            };
-          },
-        );
-
-        // Determine which PRs are before the cutoff: if the oldest is before
-        // the cutoff, then slice the list of PRs to the first PR that is after
-        // the cutoff; otherwise, return the entire list of PRs since they're
-        // sorted in descending order by update time
-        const oldestIsBeforeCutoff =
-          Temporal.Instant.compare(prs[prs.length - 1].updatedAt, after) < 0;
-        const prsWithinCutoff = oldestIsBeforeCutoff
-          ? prs.slice(
-              0,
-              prs.findIndex(
-                ({ updatedAt }) =>
-                  Temporal.Instant.compare(updatedAt, after) < 0,
-              ),
-            )
-          : prs;
-        return prsWithinCutoff.map(({ pr }) => pr);
+          return {
+            number,
+            mergedAt,
+            updatedAt,
+            status,
+          };
+        });
       },
     );
   }
@@ -231,5 +204,6 @@ export class Client {
 export interface MergedPR {
   number: number;
   mergedAt: string;
+  updatedAt: string;
   status: "success" | "failure" | "neutral" | "unknown";
 }

@@ -1,35 +1,9 @@
-import { PR, TestRun, createTestRun, streamPRsByMergedAtAsc } from "data-lib";
-import { JUnit, Test } from "format-lib";
-import Fastify, { FastifyReply, FastifyRequest } from "fastify";
+import { PR, streamPRsByMergedAtAsc } from "data-lib";
+import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import { Temporal } from "@js-temporal/polyfill";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { randomBytes } from "node:crypto";
-
-/**
- * This token is used by requests to some `/api` endpoints to authenticate for
- * write access to the database.
- */
-const AUTH_TOKEN = process.env.AUTH_TOKEN;
-if (AUTH_TOKEN === undefined || AUTH_TOKEN.length === 0) {
-  throw new Error("AUTH_TOKEN environment variable is not set");
-}
-
-/**
- * Authenticates a request, returning `true` if the request is authenticated.
- * If the request fails authentication, it will be replied to and closed so no
- * further information can be sent.
- */
-function authenticate(request: FastifyRequest, reply: FastifyReply): boolean {
-  if (request.headers.authorization !== `Bearer ${AUTH_TOKEN}`) {
-    reply.status(401).send();
-    reply.raw.end();
-    return false;
-  }
-
-  return true;
-}
 
 const server = Fastify({
   logger:
@@ -172,118 +146,6 @@ server.get("/api/merged-pr-statuses", async (_, reply) => {
 
   // Return the analysis
   reply.send(result);
-});
-
-server.put("/api/junit", async (request, reply) => {
-  // Authenticate the request
-  if (!authenticate(request, reply)) {
-    return;
-  }
-
-  const query = request.query as Record<string, string>;
-
-  // Check that the metadata query parameters are set
-  const [rawSource, rawID, rawTimestamp, branch] = [
-    "source",
-    "id",
-    "timestamp",
-    "branch",
-  ].map((key) => {
-    const value = query[key];
-    if (value === undefined || value.length === 0) {
-      reply.status(400).send(`Expected query parameter: ${key}`);
-      return undefined;
-    }
-
-    return value;
-  });
-  if (
-    rawSource === undefined ||
-    rawID === undefined ||
-    rawTimestamp === undefined ||
-    branch === undefined
-  ) {
-    return;
-  }
-
-  // Parse the ID
-  let id: TestRun["id"];
-  switch (rawSource) {
-    case "appveyor": {
-      const appveyorID = parseInt(rawID, 10);
-      if (isNaN(appveyorID)) {
-        reply.status(400).send("Expected appveyor ID to be a number");
-        return;
-      }
-
-      id = {
-        source: "appveyor",
-        buildId: appveyorID,
-      };
-      break;
-    }
-    case "circleci": {
-      const circleciID = parseInt(rawID, 10);
-      if (isNaN(circleciID)) {
-        reply.status(400).send("Expected circleci ID to be a number");
-        return;
-      }
-
-      id = {
-        source: "circleci",
-        jobId: circleciID,
-      };
-      break;
-    }
-    default:
-      reply.status(400).send("Invalid source");
-      return;
-  }
-
-  // Parse the timestamp
-  let timestamp: Temporal.Instant;
-  try {
-    timestamp = Temporal.Instant.from(rawTimestamp);
-  } catch (err) {
-    reply.status(400).send("Invalid timestamp, expected ISO 8601 format");
-    return;
-  }
-
-  // Check that the content type is XML
-  if (request.headers["content-type"] !== "application/xml") {
-    reply.status(400).send("Expected content-type: application/xml");
-    return;
-  }
-
-  // Validate that the request sent a string body
-  if (typeof request.body !== "string" || request.body.length === 0) {
-    reply.status(400).send("Expected body");
-    return;
-  }
-
-  // Parse the JUnit XML, handling any errors
-  let tests: Test[];
-  try {
-    tests = await JUnit.parse(request.body);
-  } catch (err) {
-    // aside: technically this can be 400 too if the XML is misencoded, but /shrug
-    reply.status(422);
-    return;
-  }
-
-  // Insert the tests into the database
-  await createTestRun({
-    id,
-    results: tests.map(({ name, state }) => ({
-      title: name,
-      passed: state === "passed",
-    })),
-    timestamp,
-    branch,
-  });
-
-  // Return a 201 Created response
-  reply.status(201);
 });
 
 const port = parseInt(process.env.PORT!) || 3000;
