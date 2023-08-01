@@ -17,6 +17,7 @@ import {
   createTestRun,
   getLatestTestRunTimestampForSource,
   checkTestRunExistsById,
+  closeDB,
 } from "data-lib";
 import { AppVeyor, CircleCI, GitHub } from "extern-api-lib";
 import { Temporal } from "@js-temporal/polyfill";
@@ -116,7 +117,10 @@ async function tests() {
 }
 
 Promise.all([prs(), tests()])
-  .then(() => console.info("Done."))
+  .then(() => {
+    console.info("Done.");
+    return closeDB();
+  })
   .catch((err) => {
     console.error("Failed to maintain database.");
     console.error(err);

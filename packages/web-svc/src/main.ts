@@ -50,6 +50,8 @@ namespace PRStatusAnalysis {
   /** The result of the analysis. */
   export type Result = DateBucket[];
 
+  const CACHE_DURATION: Temporal.DurationLike = { hours: 12 };
+
   // This stores the cached value and its expiration time
   let cache:
     | { result: Result; expires: Temporal.Instant }
@@ -136,7 +138,15 @@ namespace PRStatusAnalysis {
 
     // Compute the result and cache it
     cache = compute();
-    return cache;
+    return cache.then((result) => {
+      // Cache the result
+      cache = {
+        result,
+        expires: Temporal.Now.instant().add(CACHE_DURATION),
+      };
+
+      return result;
+    });
   }
 }
 

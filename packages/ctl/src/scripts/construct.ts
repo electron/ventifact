@@ -8,7 +8,7 @@
 import { AppVeyor, CircleCI, GitHub } from "extern-api-lib";
 import { Temporal } from "@js-temporal/polyfill";
 import { Config } from "config-lib";
-import { closeDb, insertPR, createTestRun, Schema } from "data-lib";
+import { closeDB, insertPR, createTestRun, Schema } from "data-lib";
 import { fetchMergedPRsDescUntil } from "../data-fetch/prs.js";
 import {
   fetchAppVeyorTestRunsUpdatedDescUntil,
@@ -123,7 +123,7 @@ async function tests() {
 Promise.all([prs(), tests()])
   .then(() => {
     console.info("Done, closing database.");
-    closeDb();
+    closeDB();
   })
   .catch((err) => {
     console.error("Failed to construct database.");

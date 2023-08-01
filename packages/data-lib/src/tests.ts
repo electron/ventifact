@@ -1,6 +1,6 @@
 import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
 import { createHash } from "crypto";
-import { db, transaction } from "./db.js";
+import * as DB from "./db.js";
 import { Tables } from "./db-schema.js";
 import QueryStream from "pg-query-stream";
 
@@ -176,7 +176,7 @@ export async function createTestRun(testRun: TestRun): Promise<void> {
   const testRunBlueprintID = blueprintIDs.deriveBlueprintID();
 
   // Create the test run safely in a transaction
-  await transaction(async (db) => {
+  await DB.transaction(async (db) => {
     // Insert the test blueprints and test run blueprint
     await Promise.all([
       db.query({
@@ -230,7 +230,7 @@ export async function createTestRun(testRun: TestRun): Promise<void> {
 export async function deleteTestRunsBefore(
   cutoff: Temporal.Instant,
 ): Promise<number> {
-  return await transaction(async (db) => {
+  return await DB.transaction(async (db) => {
     // Find the test run blueprints that will become orphaned once the test
     // runs are deleted
     const orphanedTestRunBlueprints = await db.query<
@@ -326,7 +326,7 @@ export async function deleteTestRunsBefore(
 export async function getLatestTestRunTimestampForSource(
   source: TestRun["id"]["source"],
 ): Promise<Temporal.Instant | undefined> {
-  const latestTimestampQuery = await db.query<Date[]>({
+  const latestTimestampQuery = await DB.query<Date[]>({
     text: "SELECT MAX(timestamp) FROM test_runs WHERE source = $1",
     values: [source],
     rowMode: "array",
@@ -346,7 +346,7 @@ export async function getLatestTestRunTimestampForSource(
 export async function checkTestRunExistsById(
   id: TestRun["id"],
 ): Promise<boolean> {
-  const result = await db.query({
+  const result = await DB.query({
     text: "SELECT 1 FROM test_runs WHERE source = $1 AND ext_id = $2",
     values: [id.source, id.source === "appveyor" ? id.buildId : id.jobId],
   });

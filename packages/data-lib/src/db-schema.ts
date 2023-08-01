@@ -1,4 +1,4 @@
-import { db } from "./db.js";
+import * as DB from "./db.js";
 
 export interface Tables {
   prs: {
@@ -31,7 +31,7 @@ type TableName = keyof Tables;
  */
 export const create: Record<TableName, () => Promise<void>> = {
   async prs() {
-    await db.query(
+    await DB.query(
       "CREATE TYPE prs_status AS ENUM ('success', 'failure', 'neutral', 'unknown');" +
         "CREATE TABLE prs (" +
         "number    integer     PRIMARY KEY," +
@@ -41,7 +41,7 @@ export const create: Record<TableName, () => Promise<void>> = {
     );
   },
   async test_blueprints() {
-    await db.query(
+    await DB.query(
       "CREATE TABLE test_blueprints (" +
         "id    bigint PRIMARY KEY," +
         "title text   NOT NULL" +
@@ -49,7 +49,7 @@ export const create: Record<TableName, () => Promise<void>> = {
     );
   },
   async test_run_blueprints() {
-    await db.query(
+    await DB.query(
       "CREATE TABLE test_run_blueprints (" +
         "id                 bigint PRIMARY KEY," +
         "test_blueprint_ids bytea  NOT NULL" +
@@ -57,7 +57,7 @@ export const create: Record<TableName, () => Promise<void>> = {
     );
   },
   async test_runs() {
-    await db.query(
+    await DB.query(
       "CREATE TABLE test_runs (" +
         "source       text        NOT NULL," +
         "ext_id       integer     NOT NULL," +
@@ -77,15 +77,15 @@ export const create: Record<TableName, () => Promise<void>> = {
  */
 export const drop: Record<TableName, () => Promise<void>> = {
   async prs() {
-    await db.query("DROP TABLE IF EXISTS prs; DROP TYPE IF EXISTS prs_status");
+    await DB.query("DROP TABLE IF EXISTS prs; DROP TYPE IF EXISTS prs_status");
   },
   async test_blueprints() {
-    await db.query("DROP TABLE IF EXISTS test_blueprints");
+    await DB.query("DROP TABLE IF EXISTS test_blueprints");
   },
   async test_run_blueprints() {
-    await db.query("DROP TABLE IF EXISTS test_run_blueprints");
+    await DB.query("DROP TABLE IF EXISTS test_run_blueprints");
   },
   async test_runs() {
-    await db.query("DROP TABLE IF EXISTS test_runs");
+    await DB.query("DROP TABLE IF EXISTS test_runs");
   },
 };

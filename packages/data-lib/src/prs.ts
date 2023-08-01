@@ -1,5 +1,5 @@
 import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
-import { db } from "./db.js";
+import * as DB from "./db.js";
 import QueryStream from "pg-query-stream";
 import { Tables } from "./db-schema.js";
 
@@ -25,7 +25,7 @@ export interface PR {
  * number already exists.
  */
 export async function insertPR(pr: PR): Promise<void> {
-  await db.query({
+  await DB.query({
     text:
       "INSERT INTO prs (number, merged_at, status) " +
       "VALUES ($1, $2, $3) " +
@@ -39,8 +39,9 @@ export async function insertPR(pr: PR): Promise<void> {
  * ascending order.
  */
 export async function* streamPRsByMergedAtAsc(): AsyncIterable<PR> {
-  const query = new QueryStream("SELECT * FROM prs ORDER BY merged_at ASC");
-  const stream = db.query(query) as AsyncIterable<Tables["prs"]>;
+  const stream = DB.stream<Tables["prs"]>(
+    "SELECT * FROM prs ORDER BY merged_at ASC",
+  );
 
   // Convert the database representation to the in-memory representation, namely
   // converting the `merged_at` column from a Date to a Temporal.Instant.
@@ -59,7 +60,7 @@ export async function* streamPRsByMergedAtAsc(): AsyncIterable<PR> {
 export async function getLatestPRMergedAt(): Promise<
   Temporal.Instant | undefined
 > {
-  const lastMergedTimeQuery = await db.query<Date[]>({
+  const lastMergedTimeQuery = await DB.query<Date[]>({
     text: "SELECT MAX(merged_at) FROM prs",
     rowMode: "array",
   });
@@ -78,7 +79,7 @@ export async function getLatestPRMergedAt(): Promise<
 export async function deleteMergedPRsBefore(
   cutoff: Temporal.Instant,
 ): Promise<number> {
-  const result = await db.query("DELETE FROM prs WHERE merged_at < $1", [
+  const result = await DB.query("DELETE FROM prs WHERE merged_at < $1", [
     cutoff.toString(),
   ]);
   return result.rowCount;
