@@ -18,6 +18,8 @@ import {
   getLatestTestRunTimestampForSource,
   checkTestRunExistsById,
   closeDB,
+  getLatestTestFlakeTimestamp,
+  findAndMarkTestFlakesSince,
 } from "data-lib";
 import { AppVeyor, CircleCI, GitHub } from "extern-api-lib";
 import { Temporal } from "@js-temporal/polyfill";
@@ -66,13 +68,14 @@ async function tests() {
 
   // Delete expired test runs
   const expiredCutoff = Temporal.Now.zonedDateTimeISO("UTC")
-    .subtract(Config.TEST_RUN_LIFETIME())
+    .subtract(Config.TEST_RUN.LIFETIME())
     .toInstant();
   console.info(`Purging expired test runs before ${expiredCutoff}...`);
   const numDeleted = await deleteTestRunsBefore(expiredCutoff);
   console.info(`Purged ${numDeleted} expired test runs.`);
 
   // Add newly created test runs
+  console.info("Adding new test runs...");
   await Promise.all([
     (async () => {
       const latestAppVeyorTestRunTimestamp =
@@ -112,8 +115,23 @@ async function tests() {
       }
     })(),
   ]);
+  console.info("Done adding test runs.");
 
-  // TODO: analyze tests
+  console.info("Analyzing test runs for flakes...");
+  {
+    // Determine the cutoff for the analysis, falling back to expiration cutoff
+    // if there are no previous test run flakes
+    const cutoff = (await getLatestTestFlakeTimestamp()) ?? expiredCutoff;
+
+    // Find and mark any new test flakes since the cutoff
+    const newTestFlakes = await findAndMarkTestFlakesSince(cutoff);
+    console.info(
+      `Marked ${
+        newTestFlakes.length
+      } new test flakes since ${cutoff.toString()}.`,
+    );
+  }
+  console.info("Done analyzing test runs.");
 }
 
 Promise.all([prs(), tests()])

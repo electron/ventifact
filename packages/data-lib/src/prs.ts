@@ -1,6 +1,5 @@
-import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
+import { Temporal } from "@js-temporal/polyfill";
 import * as DB from "./db.js";
-import QueryStream from "pg-query-stream";
 import { Tables } from "./db-schema.js";
 
 export interface PR {
@@ -43,12 +42,10 @@ export async function* streamPRsByMergedAtAsc(): AsyncIterable<PR> {
     "SELECT * FROM prs ORDER BY merged_at ASC",
   );
 
-  // Convert the database representation to the in-memory representation, namely
-  // converting the `merged_at` column from a Date to a Temporal.Instant.
   for await (const { number, merged_at, status } of stream) {
     yield {
       number,
-      mergedAt: toTemporalInstant.call(merged_at),
+      mergedAt: merged_at,
       status,
     };
   }
@@ -60,7 +57,7 @@ export async function* streamPRsByMergedAtAsc(): AsyncIterable<PR> {
 export async function getLatestPRMergedAt(): Promise<
   Temporal.Instant | undefined
 > {
-  const lastMergedTimeQuery = await DB.query<Date[]>({
+  const lastMergedTimeQuery = await DB.query<Temporal.Instant[]>({
     text: "SELECT MAX(merged_at) FROM prs",
     rowMode: "array",
   });
@@ -70,7 +67,7 @@ export async function getLatestPRMergedAt(): Promise<
     return undefined;
   }
 
-  return toTemporalInstant.call(latestMergedTime);
+  return latestMergedTime;
 }
 
 /**

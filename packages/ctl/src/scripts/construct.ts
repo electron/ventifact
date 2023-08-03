@@ -62,28 +62,28 @@ async function tests() {
   const circleci = new CircleCI.Client();
 
   console.info("Dropping old tests tables...");
-  await Schema.drop
-    .test_runs()
-    .then(() =>
-      Promise.all([
-        Schema.drop.test_blueprints(),
-        Schema.drop.test_run_blueprints(),
-      ]),
-    );
+  await Schema.drop.test_flakes();
+  await Schema.drop.test_runs();
+  await Promise.all([
+    Schema.drop.test_blueprints(),
+    Schema.drop.test_run_blueprints(),
+  ]);
   console.info("Dropped old tests tables.");
 
   console.info("Creating new tests tables...");
   await Promise.all([
     Schema.create.test_blueprints(),
     Schema.create.test_run_blueprints(),
-  ]).then(() => Schema.create.test_runs());
+  ]);
+  await Schema.create.test_runs();
+  await Schema.create.test_flakes();
   console.info("Created new tests tables.");
 
   console.info("Populating new tests tables...");
   {
     // Determine the cutoff
     const cutoff = Temporal.Now.zonedDateTimeISO("UTC")
-      .subtract(Config.TEST_RUN_LIFETIME())
+      .subtract(Config.TEST_RUN.LIFETIME())
       .toInstant();
 
     // Fetch test runs from AppVeyor and CircleCI

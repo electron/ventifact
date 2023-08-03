@@ -79,6 +79,7 @@ export async function* fetchAppVeyorTestRunsUpdatedDescUntil(
         })),
         timestamp,
         branch: build.branch,
+        commitId: Buffer.from(build.commitId, "hex"),
       };
     }
   }
@@ -197,6 +198,7 @@ export async function* fetchCircleCITestRunsCreatedDescUntil(
           })),
           timestamp,
           branch: pipeline.vcs?.branch ?? undefined,
+          commitId: Buffer.from(pipeline.vcs?.revision ?? "", "hex"),
         };
       }
     }

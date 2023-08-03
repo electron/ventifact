@@ -79,6 +79,7 @@ export interface Pipeline {
   state: "created" | "errored" | "setup-pending" | "setup" | "pending";
   created_at: string;
   vcs?: {
+    revision: string;
     branch?: string;
   };
 }

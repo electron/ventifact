@@ -1,6 +1,26 @@
+import { Temporal } from "@js-temporal/polyfill";
 import { Config } from "config-lib";
-import pg from "pg";
+import pg, { PoolClient } from "pg";
 import QueryStream from "pg-query-stream";
+
+// Parse timestamps as Temporal.Instant
+pg.types.setTypeParser(pg.types.builtins.TIMESTAMP, (value) =>
+  Temporal.Instant.from(value),
+);
+pg.types.setTypeParser(pg.types.builtins.TIMESTAMPTZ, (value) =>
+  Temporal.Instant.from(value),
+);
+
+// Parse bigint as JS BigInt
+const PG_INT8_ARRAY_OID = 1016;
+pg.types.setTypeParser(pg.types.builtins.INT8, BigInt);
+pg.types.setTypeParser(PG_INT8_ARRAY_OID, (value) => {
+  // Values should be in `{n,m,...}` format
+  return value
+    .substring(1, value.length - 1)
+    .split(",")
+    .map(BigInt);
+});
 
 export const pool = new pg.Pool({
   connectionString: Config.DATABASE_URL(),
@@ -50,15 +70,28 @@ export async function* stream<T>(
   // Acquire a client for the stream
   const client = await pool.connect();
 
+  try {
+    // Stream the query with the acquired client
+    yield* streamWith(client, ...args);
+  } finally {
+    // Release the client when the stream is finished
+    client.release();
+  }
+}
+
+/**
+ * Similar to `stream`, but uses a client that is passed in.
+ */
+export function streamWith<T>(
+  client: PoolClient,
+  ...args: ConstructorParameters<typeof QueryStream>
+): AsyncIterable<T> {
   // Start the query stream
   const stream = new QueryStream(...args);
   const query = client.query(stream);
 
   // Yield each row
-  yield* query;
-
-  // Release the client
-  client.release();
+  return query;
 }
 
 export function close(): Promise<void> {

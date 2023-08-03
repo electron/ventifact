@@ -1,5 +1,5 @@
-import { Temporal, toTemporalInstant } from "@js-temporal/polyfill";
-import { createHash } from "crypto";
+import { Temporal } from "@js-temporal/polyfill";
+import { Hash, createHash } from "crypto";
 import * as DB from "./db.js";
 import { Tables } from "./db-schema.js";
 import QueryStream from "pg-query-stream";
@@ -11,6 +11,7 @@ export interface TestRun {
   results: TestResult[];
   timestamp: Temporal.Instant;
   branch?: string;
+  commitId: Buffer;
 }
 
 export interface TestResult {
@@ -23,7 +24,7 @@ export interface TestResult {
  */
 const BLUEPRINT_ID_BUFFER_SIZE = 8;
 
-export class BlueprintID {
+class BlueprintID {
   #digest: Buffer;
 
   constructor(digest: Buffer) {
@@ -33,6 +34,27 @@ export class BlueprintID {
     }
 
     this.#digest = digest;
+  }
+
+  /**
+   * Convenience method for creating a Blueprint ID from a closure that
+   * transverses a some structure into a hash.
+   */
+  static hash(closure: (hash: Hash) => void): BlueprintID {
+    const hash = createHash("shake256", {
+      outputLength: BLUEPRINT_ID_BUFFER_SIZE,
+    });
+    closure(hash);
+    return new BlueprintID(hash.digest());
+  }
+
+  /**
+   * Compare two Blueprint IDs, returning a negative number if `a` is less than
+   * `b`, a positive number if `a` is greater than `b`, or zero if they are
+   * equal.
+   */
+  static compare(a: BlueprintID, b: BlueprintID): number {
+    return Buffer.compare(a.asBuffer(), b.asBuffer());
   }
 
   /**
@@ -50,119 +72,106 @@ export class BlueprintID {
   }
 }
 
-export class BlueprintIDList {
-  #ids: BlueprintID[];
-
-  constructor(ids: BlueprintID[]) {
-    // Store the IDs in sorted order
-    this.#ids = ids.sort((a, b) => a.asBuffer().compare(b.asBuffer()));
-  }
-
-  /**
-   * Parses a list of Blueprint IDs from a buffer of concatenated Blueprint IDs.
-   */
-  static fromConcatenatedBuffer(buffer: Buffer): BlueprintIDList {
-    // Ensure the buffer is a multiple of the expected size
-    if (buffer.length % BLUEPRINT_ID_BUFFER_SIZE !== 0) {
-      throw new Error("Expected a multiple of 8 bytes");
-    }
-
-    // Parse the buffer into individual Blueprint IDs
-    const ids = [];
-    for (let i = 0; i < buffer.length; i += BLUEPRINT_ID_BUFFER_SIZE) {
-      ids.push(
-        new BlueprintID(buffer.subarray(i, i + BLUEPRINT_ID_BUFFER_SIZE)),
-      );
-    }
-
-    return new BlueprintIDList(ids);
-  }
-
-  /**
-   * Create a buffer containing the concatenation of all the Blueprint IDs in
-   * this list.
-   */
-  toConcatenatedBuffer(): Buffer {
-    return Buffer.concat(this.#ids.map((id) => id.asBuffer()));
-  }
-
-  /**
-   * Iterates over each Blueprint ID in this list.
-   */
-  [Symbol.iterator](): IterableIterator<BlueprintID> {
-    return this.#ids[Symbol.iterator]();
-  }
-
-  /**
-   * Derive a blueprint ID for this list.
-   */
-  deriveBlueprintID(): BlueprintID {
-    return new BlueprintID(
-      this.#ids
-        .reduce(
-          (hash, id) => hash.update(id.asBuffer()),
-          createHash("shake256", { outputLength: BLUEPRINT_ID_BUFFER_SIZE }),
-        )
-        .digest(),
-    );
-  }
+/**
+ * Derive a blueprint ID from a list.
+ */
+function deriveBlueprintIDForList(ids: BlueprintID[]): BlueprintID {
+  return BlueprintID.hash((hash) =>
+    [...ids]
+      .sort(BlueprintID.compare)
+      .reduce((hash, id) => hash.update(id.asBuffer()), hash),
+  );
 }
 
 /**
  * Derives the Blueprint ID for a test blueprint given its structure.
  */
 function deriveBlueprintIDForTestBlueprint(title: string): BlueprintID {
-  return new BlueprintID(
-    createHash("shake256", { outputLength: BLUEPRINT_ID_BUFFER_SIZE })
-      .update(title)
-      .digest(),
-  );
+  return BlueprintID.hash((hash) => hash.update(title));
 }
 
-/**
- * Encodes a list of test results into a Buffer following the "Result Spec"
- * section in `docs/db-design.rst`.
- */
-function encodeResultSpec(results: TestResult[]): Buffer | undefined {
-  // Count the number of passed tests
-  const passedCount = results.reduce(
-    (count, { passed }) => count + (passed ? 1 : 0),
-    0,
-  );
+const ResultSpec = {
+  /**
+   * Encodes a list of test results into a Buffer following the "Result Spec"
+   * section in `docs/db-design.rst`.
+   */
+  encodeFromResults(results: TestResult[]): Buffer | undefined {
+    // Count the number of passed tests
+    const passedCount = results.reduce(
+      (count, { passed }) => count + (passed ? 1 : 0),
+      0,
+    );
 
-  // If all tests passed, we can omit the result spec
-  if (passedCount === results.length) {
-    return undefined;
-  }
-
-  // Determine if we should encode passed tests or failed tests
-  const encodingPassedTests = passedCount < results.length / 2;
-
-  // Allocate the resulting buffer: 1 byte for the variant tag, then 8 bytes per
-  // test result
-  const idsToEncode = encodingPassedTests
-    ? passedCount
-    : results.length - passedCount;
-  const result = Buffer.alloc(1 + BLUEPRINT_ID_BUFFER_SIZE * idsToEncode);
-
-  // Write the variant tag
-  result.writeUInt8(encodingPassedTests ? 1 : 0);
-
-  // Write the test IDs
-  let offset = 1;
-  for (const { title, passed } of results) {
-    // Skip the test if it doesn't match the encoding variant
-    if (passed !== encodingPassedTests) {
-      continue;
+    // If all tests passed, we can omit the result spec
+    if (passedCount === results.length) {
+      return undefined;
     }
 
-    // Write the test ID
-    deriveBlueprintIDForTestBlueprint(title).asBuffer().copy(result, offset);
-    offset += BLUEPRINT_ID_BUFFER_SIZE;
-  }
+    // Determine if we should encode passed tests or failed tests
+    const encodingPassedTests = passedCount < results.length / 2;
 
-  return result;
-}
+    // Allocate the resulting buffer: 1 byte for the variant tag, then 8 bytes
+    // per test result
+    const idsToEncode = encodingPassedTests
+      ? passedCount
+      : results.length - passedCount;
+    const result = Buffer.alloc(1 + BLUEPRINT_ID_BUFFER_SIZE * idsToEncode);
+
+    // Write the variant tag
+    result.writeUInt8(encodingPassedTests ? 1 : 0);
+
+    // Write the test IDs
+    let offset = 1;
+    for (const { title, passed } of results) {
+      // Skip the test if it doesn't match the encoding variant
+      if (passed !== encodingPassedTests) {
+        continue;
+      }
+
+      // Write the test ID
+      deriveBlueprintIDForTestBlueprint(title).asBuffer().copy(result, offset);
+      offset += BLUEPRINT_ID_BUFFER_SIZE;
+    }
+
+    return result;
+  },
+  /**
+   * Decodes a result spec into a list of test IDs.
+   */
+  decodeIDResults(
+    spec: Buffer | null,
+    allIDs: Tables["test_blueprints"]["id"][],
+  ): Map<Tables["test_blueprints"]["id"], boolean> {
+    // If the spec is null, all tests passed
+    if (spec === null) {
+      return new Map(allIDs.map((id) => [id, true]));
+    }
+
+    // Read the variant tag
+    const encodingPassedTests = spec.readUInt8(0) === 1;
+
+    // Read the test IDs
+    const ids = new Set<bigint>();
+    for (
+      let offset = 1;
+      offset < spec.length;
+      offset += BLUEPRINT_ID_BUFFER_SIZE
+    ) {
+      const buffer = spec.subarray(offset, offset + BLUEPRINT_ID_BUFFER_SIZE);
+      const id = new BlueprintID(buffer);
+      ids.add(id.toInt64());
+    }
+
+    // Determine whether each test ID passed or failed
+    const result = new Map<Tables["test_blueprints"]["id"], boolean>();
+    for (const id of allIDs) {
+      const hasID = ids.has(id);
+      result.set(id, encodingPassedTests ? hasID : !hasID);
+    }
+
+    return result;
+  },
+};
 
 /**
  * Creates a test run in the database.
@@ -172,44 +181,36 @@ export async function createTestRun(testRun: TestRun): Promise<void> {
     id: deriveBlueprintIDForTestBlueprint(title),
     title,
   }));
-  const blueprintIDs = new BlueprintIDList(testBlueprints.map(({ id }) => id));
-  const testRunBlueprintID = blueprintIDs.deriveBlueprintID();
+  const blueprintIDs = testBlueprints.map(({ id }) => id);
+  const testRunBlueprintID = deriveBlueprintIDForList(blueprintIDs);
+  const resultSpec = ResultSpec.encodeFromResults(testRun.results);
 
   // Create the test run safely in a transaction
   await DB.transaction(async (db) => {
     // Insert the test blueprints and test run blueprint
     await Promise.all([
-      db.query({
-        text:
-          "INSERT INTO test_blueprints (id, title) " +
+      db.query(
+        "INSERT INTO test_blueprints (id, title) " +
           `VALUES ${testBlueprints
             .map((_, i) => `($${2 * i + 1}, $${2 * i + 2})`)
             .join(",")} ` +
           "ON CONFLICT (id) DO NOTHING",
-        values: testBlueprints.flatMap(({ id, title }) => [
-          id.toInt64(),
-          title,
-        ]),
-      }),
-      db.query({
-        text:
-          "INSERT INTO test_run_blueprints (id, test_blueprint_ids) " +
+        testBlueprints.flatMap(({ id, title }) => [id.toInt64(), title]),
+      ),
+      db.query(
+        "INSERT INTO test_run_blueprints (id, test_blueprint_ids) " +
           "VALUES ($1, $2) " +
           "ON CONFLICT (id) DO NOTHING",
-        values: [
-          testRunBlueprintID.toInt64(),
-          blueprintIDs.toConcatenatedBuffer(),
-        ],
-      }),
+        [testRunBlueprintID.toInt64(), blueprintIDs.map((id) => id.toInt64())],
+      ),
     ]);
 
     // Insert the test run
-    await db.query({
-      text:
-        "INSERT INTO test_runs (source, ext_id, blueprint_id, timestamp, branch, result_spec) " +
-        "VALUES ($1, $2, $3, $4, $5, $6) " +
+    await db.query(
+      "INSERT INTO test_runs (source, ext_id, blueprint_id, timestamp, branch, commit_id, result_spec) " +
+        "VALUES ($1, $2, $3, $4, $5, $6, $7) " +
         "ON CONFLICT (source, ext_id) DO NOTHING",
-      values: [
+      [
         testRun.id.source,
         testRun.id.source === "appveyor"
           ? testRun.id.buildId
@@ -217,9 +218,10 @@ export async function createTestRun(testRun: TestRun): Promise<void> {
         testRunBlueprintID.toInt64(),
         testRun.timestamp.toString(),
         testRun.branch ?? undefined,
-        encodeResultSpec(testRun.results),
+        testRun.commitId,
+        resultSpec,
       ],
-    });
+    );
   });
 }
 
@@ -230,48 +232,54 @@ export async function createTestRun(testRun: TestRun): Promise<void> {
 export async function deleteTestRunsBefore(
   cutoff: Temporal.Instant,
 ): Promise<number> {
-  return await DB.transaction(async (db) => {
+  return await DB.transaction(async (tx) => {
     // Find the test run blueprints that will become orphaned once the test
     // runs are deleted
-    const orphanedTestRunBlueprints = await db.query<
+    const orphanedTestRunBlueprints = await tx.query<
       Tables["test_run_blueprints"] & { num_test_runs: number }
-    >({
-      text: `
-        SELECT num_test_runs, blueprint_id, test_blueprint_ids
+    >(
+      `
+      SELECT num_test_runs, blueprint_id, test_blueprint_ids
+      FROM (
+        SELECT expired_test_runs.blueprint_id, COUNT(*) AS num_test_runs
         FROM (
-          SELECT expired_test_runs.blueprint_id, COUNT(*) AS num_test_runs
-          FROM (
-            SELECT blueprint_id, timestamp
-            FROM test_runs
-            WHERE timestamp < $1
-          ) expired_test_runs
-          LEFT JOIN test_runs
-            ON test_runs.blueprint_id = expired_test_runs.blueprint_id
-          GROUP BY expired_test_runs.blueprint_id
-        ) q
-        LEFT JOIN test_run_blueprints
-          ON test_run_blueprints.id = q.blueprint_id
-        WHERE q.num_test_runs <= 1
+          SELECT blueprint_id, timestamp
+          FROM test_runs
+          WHERE timestamp < $1
+        ) expired_test_runs
+        LEFT JOIN test_runs
+          ON test_runs.blueprint_id = expired_test_runs.blueprint_id
+        GROUP BY expired_test_runs.blueprint_id
+      ) q
+      LEFT JOIN test_run_blueprints
+        ON test_run_blueprints.id = q.blueprint_id
+      WHERE q.num_test_runs <= 1
       `,
-      values: [cutoff.toString()],
-    });
+      [cutoff.toString()],
+    );
+
+    // Delete any test flakes referencing these test runs
+    await tx.query(
+      "DELETE FROM test_flakes " +
+        "USING test_runs " +
+        "WHERE test_runs.timestamp < $1",
+      [cutoff.toString()],
+    );
 
     // Delete the test expired runs, which must be done before deleting the
     // corresponding blueprints that reference them
-    const testRunsDeletedResult = await db.query({
-      text: "DELETE FROM test_runs WHERE timestamp < $1",
-      values: [cutoff.toString()],
-    });
+    const testRunsDeletedResult = await tx.query(
+      "DELETE FROM test_runs WHERE timestamp < $1",
+      [cutoff.toString()],
+    );
 
     // Handle the test blueprints in any orphaned test run blueprints
     if (orphanedTestRunBlueprints.rowCount > 0) {
       // Figure out all the potentially-orphaned test blueprints
       const potentiallyOrphanedTestBlueprintIDs = new Set<bigint>();
       for (const { test_blueprint_ids } of orphanedTestRunBlueprints.rows) {
-        const blueprintIDs =
-          BlueprintIDList.fromConcatenatedBuffer(test_blueprint_ids);
-        for (const id of blueprintIDs) {
-          potentiallyOrphanedTestBlueprintIDs.add(id.toInt64());
+        for (const id of test_blueprint_ids) {
+          potentiallyOrphanedTestBlueprintIDs.add(id);
         }
       }
 
@@ -282,17 +290,15 @@ export async function deleteTestRunsBefore(
           "WHERE id <> ALL ($1)",
         [orphanedTestRunBlueprints.rows.map(({ id }) => id)],
       );
-      const streamQuery = db.query(stream) as AsyncIterable<
+      const streamQuery = tx.query(stream) as AsyncIterable<
         Tables["test_run_blueprints"]
       >;
 
       for await (const { test_blueprint_ids } of streamQuery) {
         // Remove all of this test run blueprint's test blueprint IDs from the
         // set of potentially-orphaned test blueprints
-        const blueprintIDs =
-          BlueprintIDList.fromConcatenatedBuffer(test_blueprint_ids);
-        for (const id of blueprintIDs) {
-          potentiallyOrphanedTestBlueprintIDs.delete(id.toInt64());
+        for (const id of test_blueprint_ids) {
+          potentiallyOrphanedTestBlueprintIDs.delete(id);
         }
 
         // If the set is now empty, we can stop early
@@ -303,17 +309,15 @@ export async function deleteTestRunsBefore(
 
       // Delete the identified orphaned test blueprints
       if (potentiallyOrphanedTestBlueprintIDs.size > 0) {
-        await db.query({
-          text: "DELETE FROM test_blueprints WHERE id = ANY ($1)",
-          values: [Array.from(potentiallyOrphanedTestBlueprintIDs)],
-        });
+        await tx.query("DELETE FROM test_blueprints WHERE id = ANY ($1)", [
+          Array.from(potentiallyOrphanedTestBlueprintIDs),
+        ]);
       }
 
       // Delete the identified orphaned test run blueprints
-      await db.query({
-        text: "DELETE FROM test_run_blueprints WHERE id = ANY ($1)",
-        values: [orphanedTestRunBlueprints.rows.map(({ id }) => id)],
-      });
+      await tx.query("DELETE FROM test_run_blueprints WHERE id = ANY ($1)", [
+        orphanedTestRunBlueprints.rows.map(({ id }) => id),
+      ]);
     }
 
     return testRunsDeletedResult.rowCount;
@@ -321,12 +325,12 @@ export async function deleteTestRunsBefore(
 }
 
 /**
- * Find the latest test run timestamp for the given source type and returns it.
+ * Finds the latest test run timestamp for the given source type.
  */
 export async function getLatestTestRunTimestampForSource(
   source: TestRun["id"]["source"],
 ): Promise<Temporal.Instant | undefined> {
-  const latestTimestampQuery = await DB.query<Date[]>({
+  const latestTimestampQuery = await DB.query<Temporal.Instant[]>({
     text: "SELECT MAX(timestamp) FROM test_runs WHERE source = $1",
     values: [source],
     rowMode: "array",
@@ -337,7 +341,7 @@ export async function getLatestTestRunTimestampForSource(
     return undefined;
   }
 
-  return toTemporalInstant.call(latestTimestamp);
+  return latestTimestamp;
 }
 
 /**
@@ -346,10 +350,120 @@ export async function getLatestTestRunTimestampForSource(
 export async function checkTestRunExistsById(
   id: TestRun["id"],
 ): Promise<boolean> {
-  const result = await DB.query({
-    text: "SELECT 1 FROM test_runs WHERE source = $1 AND ext_id = $2",
-    values: [id.source, id.source === "appveyor" ? id.buildId : id.jobId],
-  });
+  const result = await DB.query(
+    "SELECT 1 FROM test_runs WHERE source = $1 AND ext_id = $2",
+    [id.source, id.source === "appveyor" ? id.buildId : id.jobId],
+  );
 
   return result.rowCount > 0;
+}
+
+/**
+ * Finds the latest test flake's timestamp.
+ */
+export async function getLatestTestFlakeTimestamp(): Promise<
+  Temporal.Instant | undefined
+> {
+  const latestTimestampQuery = await DB.query<Temporal.Instant[]>({
+    text:
+      "SELECT MAX(timestamp) " +
+      "FROM test_flakes " +
+      "LEFT JOIN test_runs " +
+      "ON test_runs.source = test_flakes.test_run_source " +
+      "AND test_runs.ext_id = test_flakes.test_run_ext_id",
+    rowMode: "array",
+  });
+  const latestTimestamp = latestTimestampQuery.rows[0]?.[0];
+
+  if (latestTimestamp === undefined) {
+    return undefined;
+  }
+
+  return latestTimestamp;
+}
+
+/**
+ * Marks test flakes that occurred since the given cutoff.
+ */
+export async function findAndMarkTestFlakesSince(
+  cutoff: Temporal.Instant,
+): Promise<Tables["test_flakes"][]> {
+  const flakyTestReruns = await DB.query<
+    Pick<
+      Tables["test_runs"],
+      "source" | "ext_id" | "blueprint_id" | "result_spec"
+    > &
+      Pick<Tables["test_run_blueprints"], "test_blueprint_ids"> & {
+        previous_result_spec: Tables["test_runs"]["result_spec"];
+        rerun_num: number;
+      }
+  >(
+    `
+    SELECT q.source, q.ext_id, q.blueprint_id, test_run_blueprints.test_blueprint_ids, q.result_spec, q.previous_result_spec, q.rerun_num
+    FROM (
+      SELECT *, LAG(result_spec) OVER w AS previous_result_spec, ROW_NUMBER() OVER w AS rerun_num
+      FROM test_runs
+      WINDOW w AS (PARTITION BY blueprint_id, commit_id ORDER BY timestamp ASC)
+    ) q
+    LEFT JOIN test_run_blueprints
+      ON test_run_blueprints.id = q.blueprint_id
+    WHERE timestamp > $1
+      AND q.rerun_num > 1
+      AND (
+        (q.result_spec IS NULL AND q.previous_result_spec IS NOT NULL)
+        OR (q.result_spec IS NOT NULL AND q.previous_result_spec IS NULL)
+        OR (q.result_spec != q.previous_result_spec)
+      )
+    `,
+    [cutoff.toString()],
+  );
+
+  // Find the flaky tests in each flaky test rerun
+  const newTestFlakes: Tables["test_flakes"][] = [];
+  for (const row of flakyTestReruns.rows) {
+    const results = ResultSpec.decodeIDResults(
+      row.result_spec,
+      row.test_blueprint_ids,
+    );
+    const prevResults = ResultSpec.decodeIDResults(
+      row.previous_result_spec,
+      row.test_blueprint_ids,
+    );
+
+    // Determine which tests changed between the two test runs
+    for (const [id, result] of results) {
+      const prevResult = prevResults.get(id);
+
+      // Safety check: this shouldn't happen
+      if (prevResult === undefined) {
+        throw new Error("Test run blueprint mismatch");
+      }
+
+      // If the result changed, mark it as a flake
+      if (prevResult !== result) {
+        newTestFlakes.push({
+          test_run_source: row.source,
+          test_run_ext_id: row.ext_id,
+          test_id: id,
+        });
+      }
+    }
+  }
+
+  // Insert the new test flakes
+  if (newTestFlakes.length > 0) {
+    await DB.query(
+      "INSERT INTO test_flakes (test_run_source, test_run_ext_id, test_blueprint_id) VALUES " +
+        newTestFlakes
+          .map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`)
+          .join(", "),
+      newTestFlakes.flatMap(({ test_run_source, test_run_ext_id, test_id }) => [
+        test_run_source,
+        test_run_ext_id,
+        test_id,
+      ]),
+    );
+  }
+
+  return newTestFlakes;
 }

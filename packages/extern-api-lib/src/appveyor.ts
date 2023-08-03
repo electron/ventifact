@@ -84,6 +84,7 @@ export interface Build {
   buildId: number;
   jobs: Job[];
   branch: string;
+  commitId: string;
   updated: string;
   status: string; // "success" | "failed" | "queued" | "running" | "cancelled", maybe more
 }

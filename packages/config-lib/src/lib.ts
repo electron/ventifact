@@ -16,9 +16,20 @@ export const Config = {
   MERGED_PR_LIFETIME: () => Env.duration("MERGED_PR_LIFETIME"),
 
   /**
-   * The duration that a test run is retained for by this application.
+   * Test run configuration.
    */
-  TEST_RUN_LIFETIME: () => Env.duration("TEST_RUN_LIFETIME"),
+  TEST_RUN: {
+    /**
+     * The duration that a test run is retained for by this application.
+     */
+    LIFETIME: () => Env.duration("TEST_RUN_LIFETIME"),
+
+    /**
+     * The number of times that a test run can flake within the configured test
+     * run lifetime duration before it's labeled as flaky.
+     */
+    FLAKE_THRESHOLD: () => Env.str("TEST_RUN_FLAKE_THRESHOLD"),
+  },
 
   /**
    * AppVeyor configuration.
