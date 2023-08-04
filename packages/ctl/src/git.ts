@@ -1,4 +1,3 @@
-import { GitHub } from "extern-api-lib";
 import { mkdtemp, readFile, rmdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -11,7 +10,6 @@ const DISABLED_TESTS_PATH = "spec/disabled-tests.json";
  * Creates a new branch with the given test title disabled.
  */
 export async function createBranchWithTestDisabled(
-  github: GitHub.Client,
   testTitle: string,
 ): Promise<string | undefined> {
   let tempDir: string | undefined;
@@ -33,10 +31,10 @@ export async function createBranchWithTestDisabled(
     );
 
     // Determine the temp branch name
-    const branchName = `ventifact/disable-test/${testTitle
+    const branchName = `ventifact/disable-test/${Date.now()}-${testTitle
       .substring(0, 32)
       .toLowerCase()
-      .replace(/[^a-z0-9]+/, "-")}--${Date.now()}`;
+      .replace(/[^a-z0-9]+/, "-")}`;
 
     // Create a new branch
     await git.checkoutLocalBranch(branchName);
