@@ -19,7 +19,7 @@ import {
   checkTestRunExistsById,
   closeDB,
   getLatestTestFlakeTimestamp,
-  findAndMarkTestFlakesSince,
+  markTestFlakesSince,
 } from "data-lib";
 import { AppVeyor, CircleCI, GitHub } from "extern-api-lib";
 import { Temporal } from "@js-temporal/polyfill";
@@ -124,11 +124,9 @@ async function tests() {
     const cutoff = (await getLatestTestFlakeTimestamp()) ?? expiredCutoff;
 
     // Find and mark any new test flakes since the cutoff
-    const newTestFlakes = await findAndMarkTestFlakesSince(cutoff);
+    const newTestFlakeCount = await markTestFlakesSince(cutoff);
     console.info(
-      `Marked ${
-        newTestFlakes.length
-      } new test flakes since ${cutoff.toString()}.`,
+      `Marked ${newTestFlakeCount} new test flakes since ${cutoff.toString()}.`,
     );
   }
   console.info("Done analyzing test runs.");

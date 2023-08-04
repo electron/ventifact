@@ -385,9 +385,9 @@ export async function getLatestTestFlakeTimestamp(): Promise<
 /**
  * Marks test flakes that occurred since the given cutoff.
  */
-export async function findAndMarkTestFlakesSince(
+export async function markTestFlakesSince(
   cutoff: Temporal.Instant,
-): Promise<Tables["test_flakes"][]> {
+): Promise<number> {
   const flakyTestReruns = await DB.query<
     Pick<
       Tables["test_runs"],
@@ -465,5 +465,5 @@ export async function findAndMarkTestFlakesSince(
     );
   }
 
-  return newTestFlakes;
+  return newTestFlakes.length;
 }
