@@ -16,7 +16,7 @@
 			</a>
 		</h1>
 		<ul class="flex flex-row flex-wrap justify-center md:flex-col gap-2">
-			{#each [{ href: '/pr-statuses', title: 'PR Statuses' }, { href: '/test-runs', title: 'Test Runs' }] as { href, title }}
+			{#each [{ href: '/pr-statuses', title: 'PR Statuses' }, { href: '/test-flakes', title: 'Test Flakes' }] as { href, title }}
 				<li>
 					<a {href} class="px-2 py-1 rounded hover:bg-stone-200 focus:bg-stone-200">{title}</a>
 				</li>

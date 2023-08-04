@@ -467,3 +467,91 @@ export async function markTestFlakesSince(
 
   return newTestFlakes.length;
 }
+
+/**
+ * Fetches the given number of test runs, ordered by timestamp descending,
+ * optionally since the given cutoff.
+ */
+export async function fetchSomeTestRunsSinceDesc(
+  count: number,
+  cutoff?: Temporal.Instant | undefined,
+): Promise<
+  {
+    id: TestRun["id"];
+    timestamp: Temporal.Instant;
+    commitId: string;
+    succeeded: boolean;
+  }[]
+> {
+  return (
+    await DB.query<{
+      source: TestRun["id"]["source"];
+      ext_id: number;
+      timestamp: Temporal.Instant;
+      commit_id: string;
+      succeeded: boolean;
+    }>(
+      "SELECT source, ext_id, timestamp, commit_id, result_spec IS NOT NULL AS succeeded " +
+        "FROM test_runs " +
+        (cutoff === undefined ? "" : "WHERE timestamp > $2 ") +
+        "ORDER BY timestamp DESC " +
+        "LIMIT $1",
+      [count, ...(cutoff === undefined ? [] : [cutoff.toString()])],
+    )
+  ).rows.map(({ source, ext_id, timestamp, commit_id, succeeded }) => ({
+    id:
+      source === "appveyor"
+        ? { source, buildId: ext_id }
+        : { source, jobId: ext_id },
+    timestamp,
+    commitId: commit_id,
+    succeeded,
+  }));
+}
+
+/**
+ * Fetches the given number of test flakes, ordered by timestamp descending,
+ * optionally since the given cutoff.
+ */
+export async function fetchSomeTestFlakesSince(
+  count: number,
+  cutoff?: Temporal.Instant | undefined,
+): Promise<
+  {
+    test_run_id: TestRun["id"];
+    test_title: string;
+    timestamp: Temporal.Instant;
+  }[]
+> {
+  return (
+    await DB.query<{
+      source: TestRun["id"]["source"];
+      ext_id: number;
+      timestamp: Temporal.Instant;
+      title: string;
+    }>(
+      `
+    SELECT q.test_run_source AS source, q.test_run_ext_id AS ext_id, q.timestamp, q.title
+    FROM (
+      SELECT test_flakes.test_run_source, test_flakes.test_run_ext_id, test_flakes.test_blueprint_id, test_runs.timestamp, test_blueprints.title
+      FROM test_flakes
+      LEFT JOIN test_runs
+        ON test_runs.source = test_flakes.test_run_source AND test_runs.ext_id = test_flakes.test_run_ext_id
+      LEFT JOIN test_blueprints
+        ON test_blueprints.id = test_flakes.test_blueprint_id
+    ) q
+    ${cutoff === undefined ? "" : "WHERE q.timestamp > $2 "}
+    ORDER BY q.timestamp DESC
+    LIMIT $1
+    `,
+      [count, ...(cutoff === undefined ? [] : [cutoff.toString()])],
+    )
+  ).rows.map(({ source, ext_id, timestamp, title }) => ({
+    test_run_id:
+      source === "appveyor"
+        ? { source, buildId: ext_id }
+        : { source, jobId: ext_id },
+    test_title: title,
+    timestamp,
+  }));
+}
