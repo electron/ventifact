@@ -16,6 +16,7 @@
     "config-lib": "workspace:*",
     "data-lib": "workspace:*",
     "extern-api-lib": "workspace:*",
-    "format-lib": "workspace:*"
+    "format-lib": "workspace:*",
+    "simple-git": "^3.19.1"
   }
 }

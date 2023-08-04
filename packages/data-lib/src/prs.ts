@@ -1,6 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
 import * as DB from "./db.js";
-import { Tables } from "./db-schema.js";
 
 export interface PR {
   /**
@@ -34,21 +33,43 @@ export async function insertPR(pr: PR): Promise<void> {
 }
 
 /**
- * Fetches a stream of PRs from the database, ordered by `merged_at` in
- * ascending order.
+ * Counts the number of PRs with the same status on each date, in ascending
+ * order by date.
  */
-export async function* streamPRsByMergedAtAsc(): AsyncIterable<PR> {
-  const stream = DB.stream<Tables["prs"]>(
-    "SELECT * FROM prs ORDER BY merged_at ASC",
+export async function countPRStatusesByDateAsc(): Promise<
+  {
+    date: Temporal.PlainDate;
+    counts: Map<PR["status"], number>;
+  }[]
+> {
+  const query = await DB.query<
+    {
+      merge_date: Temporal.PlainDate;
+    } & {
+      [status in PR["status"]]: number;
+    }
+  >(
+    "SELECT merged_at::date AS merge_date, " +
+      "COUNT(*) FILTER (WHERE status = 'success') AS success, " +
+      "COUNT(*) FILTER (WHERE status = 'failure') AS failure, " +
+      "COUNT(*) FILTER (WHERE status = 'neutral') AS neutral, " +
+      "COUNT(*) FILTER (WHERE status = 'unknown') AS unknown " +
+      "FROM prs " +
+      "GROUP BY merge_date " +
+      "ORDER BY merge_date ASC",
   );
 
-  for await (const { number, merged_at, status } of stream) {
-    yield {
-      number,
-      mergedAt: merged_at,
-      status,
-    };
-  }
+  return query.rows.map(({ merge_date, ...counts }) => ({
+    date: merge_date,
+    counts: new Map(
+      Object.entries(counts)
+        .filter(([_, count]) => count > 0)
+        .map(([status, count]) => [status, Number(count)]) as [
+        PR["status"],
+        number,
+      ][],
+    ),
+  }));
 }
 
 /**

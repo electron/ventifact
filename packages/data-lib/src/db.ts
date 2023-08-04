@@ -11,6 +11,11 @@ pg.types.setTypeParser(pg.types.builtins.TIMESTAMPTZ, (value) =>
   Temporal.Instant.from(value),
 );
 
+// Parse dates as Temporal.PlainDate
+pg.types.setTypeParser(pg.types.builtins.DATE, (value) =>
+  Temporal.PlainDate.from(value),
+);
+
 // Parse bigint as JS BigInt
 const PG_INT8_ARRAY_OID = 1016;
 pg.types.setTypeParser(pg.types.builtins.INT8, BigInt);
