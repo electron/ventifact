@@ -3,7 +3,7 @@ import { type PR, countPRStatusesByDateAsc } from 'data-lib';
 import type { PageServerLoad } from './$types';
 
 export interface DehydratedResult {
-	data: {
+	dehydrated: {
 		date: string;
 		counts: [PR['status'], number][];
 	}[];
@@ -37,7 +37,7 @@ export const load = ((): Promise<DehydratedResult> => {
 
 	// Compute the data, marking the cache as a promise that it's still computing
 	cache = countPRStatusesByDateAsc().then((buckets) => ({
-		data: buckets.map((bucket) => ({
+		dehydrated: buckets.map((bucket) => ({
 			date: bucket.date.toString(),
 			counts: [...bucket.counts.entries()]
 		}))

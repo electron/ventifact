@@ -35,6 +35,7 @@
 	"type": "module",
 	"dependencies": {
 		"@js-temporal/polyfill": "^0.4.4",
-		"data-lib": "workspace:*"
+		"data-lib": "workspace:*",
+		"immutable": "^4.3.2"
 	}
 }

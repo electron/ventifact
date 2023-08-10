@@ -7,7 +7,7 @@
 	<title>Ventifact</title>
 </svelte:head>
 
-<div class="flex flex-col md:flex-row md:justify-center xl:mt-12">
+<div class="flex flex-col md:flex-row md:justify-center lg:m-6 xl:m-12 2xl:m-20">
 	<nav class="flex flex-col items-center p-2 gap-2 select-none md:w-48 md:p-4 md:items-start">
 		<h1 class="font-bold">
 			<a href="/" class="flex flex-row gap-1 items-center">
@@ -24,7 +24,7 @@
 		</ul>
 	</nav>
 
-	<main class="flex-1 p-4 md:max-w-2xl">
+	<main class="flex-1 p-4 max-w-7xl">
 		<slot />
 	</main>
 </div>

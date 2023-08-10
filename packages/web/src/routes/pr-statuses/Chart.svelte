@@ -1,107 +1,229 @@
 <script lang="ts">
-	import type { Temporal } from '@js-temporal/polyfill';
+	import { Temporal } from '@js-temporal/polyfill';
 	import type { PR } from 'data-lib';
+	import { OrderedMap, Map, type Set, List } from 'immutable';
+
+	/**
+	 * The status of a merged PR.
+	 */
+	type PRStatus = PR['status'];
+
+	/**
+	 * A canonical order of statuses.
+	 */
+	const STATUS_ORDER: List<PRStatus> = List(['success', 'failure', 'neutral', 'unknown']);
+
+	/**
+	 * A date in ISO 8601 format: YYYY-MM-DD.
+	 */
+	type DateString = string;
+
+	/**
+	 * The number of pull requests merged with a certain status on a certain date.
+	 */
+	type Count = number;
+
+	/**
+	 * Points in the form `(date, count)`, in ascending order by date.
+	 */
+	type DataSeries = OrderedMap<DateString, Count>;
+
+	/**
+	 * A `DataSeries` as an SVG path in a certain SVG viewbox.
+	 */
+	type ChartPath = string;
+
+	/**
+	 * Buckets of `Count`s for each PR status, grouped by date in ascending order.
+	 */
+	type RawData = OrderedMap<DateString, Map<PRStatus, Count>>;
 
 	/**
 	 * The counts of each status for each date in ascending order.
 	 */
-	export let data: {
-		date: Temporal.PlainDate;
-		counts: Map<PR['status'], number>;
-	}[];
+	export let rawData: RawData;
+
+	/**
+	 * Averages the data over the given duration in days
+	 */
+	export let rollingAverageDuration: number | undefined = undefined;
+
+	/**
+	 * Whether to show each status.
+	 */
+	export let shownStatuses: Set<PRStatus>;
 
 	/**
 	 * The size of the SVG viewbox.
 	 */
 	let svgViewBox: { width: number; height: number } = { width: 640, height: 480 };
 
-	let processedData = processData();
+	// Process the data over the rolling average duration
+	$: averagedData =
+		rollingAverageDuration !== undefined
+			? rollingAverage(rawData, rollingAverageDuration)
+			: rawData;
 
-	function processData(): { status: PR['status']; chartPath: string }[] {
-		if (data.length === 0) {
-			return [];
+	// Convert each shown status into a series of points
+	$: statusSeries = dataSeriesForStatuses(averagedData, shownStatuses);
+
+	// Stack the data series
+	$: stackedSeries = stackSeries(
+		statusSeries,
+		STATUS_ORDER.filter((status) => shownStatuses.has(status))
+	);
+
+	// Process the data into a format that can be used by the chart
+	$: chartPaths = convertToChartPaths(stackedSeries, svgViewBox);
+
+	/**
+	 * Performs a rolling average over the data.
+	 */
+	function rollingAverage(data: RawData, days: number): RawData {
+		// Edge case: no data
+		if (data.size === 0) {
+			return data;
 		}
 
-		const firstDate = data[0].date;
+		// Convert the duration to a Temporal Duration
+		const duration = Temporal.Duration.from({ days });
 
-		// Convert each status into a series of points (day, count)
-		const points = new Map<PR['status'], { x: number; y: number }[]>();
-		for (const { date, counts } of data) {
-			for (const [status, count] of counts) {
-				const point = { x: firstDate.until(date).total('days'), y: count };
+		// We need to exclude the days within the first interval from the average
+		// since we don't have enough data to average over the entire interval
+		const newFirstDate = Temporal.PlainDate.from(data.keySeq().first()!).add(duration);
 
-				if (points.has(status)) {
-					points.get(status)!.push(point);
-				} else {
-					points.set(status, [point]);
-				}
-			}
-		}
+		return data
+			.toSeq()
+			.skipUntil((_, date) => Temporal.PlainDate.compare(date, newFirstDate) >= 0)
+			.map((_, date, seq) => {
+				// Find the interval of data from `date - duration` to `date`, inclusive
+				const intervalStart = Temporal.PlainDate.from(date).subtract(duration);
+				const interval = data
+					.toSeq()
+					.skipUntil((_, d) => Temporal.PlainDate.compare(d, intervalStart) >= 0)
+					.takeWhile((_, d) => Temporal.PlainDate.compare(d, date) <= 0)
+					.valueSeq()
+					.toList();
 
-		// Stack each series of points
-		let previousPoints: { x: number; y: number }[] | undefined;
-		for (const status of ['unknown', 'neutral', 'failure', 'success'] as const) {
-			const pointsForStatus = points.get(status);
-			if (pointsForStatus === undefined) {
+				// Average the data in the interval
+				return interval
+					.reduce((sum, counts) => sum.mergeWith((a, b) => a + b, counts), Map<PRStatus, number>())
+					.map((sum) => sum / interval.size);
+			})
+			.toOrderedMap();
+	}
+
+	/**
+	 * Creates a data series (points in the form `(date, count)`) for each status.
+	 */
+	function dataSeriesForStatuses(
+		data: RawData,
+		statuses: Set<PRStatus>
+	): Map<PRStatus, DataSeries> {
+		return Map(
+			statuses
+				.toSeq()
+				.map(
+					(status) =>
+						[
+							status,
+							data.flatMap((counts, date) =>
+								counts.has(status) ? [[date, counts.get(status)!]] : []
+							)
+						] as [PRStatus, DataSeries]
+				)
+				.filter(([, series]) => series.size > 0)
+		);
+	}
+
+	/**
+	 * Stacks the data series on top of each other, in the order given.
+	 */
+	function stackSeries(
+		series: Map<PRStatus, DataSeries>,
+		order: List<PRStatus>
+	): OrderedMap<PRStatus, DataSeries> {
+		const newSeries: [PRStatus, DataSeries][] = [];
+
+		for (const status of order.reverse()) {
+			const data = series.get(status);
+
+			// If the status is not in the series, skip it
+			if (data === undefined) {
 				continue;
 			}
 
-			if (previousPoints !== undefined) {
-				let currentIndex = 0;
-				let prevPointsIndex = 0;
-
-				while (currentIndex < pointsForStatus.length && prevPointsIndex < previousPoints.length) {
-					while (
-						prevPointsIndex < previousPoints.length &&
-						previousPoints[prevPointsIndex].x !== pointsForStatus[currentIndex].x
-					) {
-						prevPointsIndex++;
-					}
-
-					if (prevPointsIndex < previousPoints.length) {
-						pointsForStatus[currentIndex].y += previousPoints[prevPointsIndex].y;
-					} else {
-						break;
-					}
-
-					currentIndex++;
-				}
+			// For the first series, there is no previous series to stack on top of,
+			// so we just add it to the list as-is
+			if (newSeries.length === 0) {
+				newSeries.push([status, data]);
+				continue;
 			}
 
-			previousPoints = pointsForStatus;
+			// Determine the previous series to stack on top of
+			const previousSeries = newSeries[newSeries.length - 1][1];
+
+			// Add the current series to the list, stacking it on top of the previous
+			// series
+			newSeries.push([status, data.map((count, date) => count + previousSeries.get(date, 0))]);
 		}
 
-		if (previousPoints === undefined) {
-			return [];
+		return OrderedMap(newSeries);
+	}
+
+	/**
+	 * Converts the data series into an SVG path within the given viewbox.
+	 */
+	function convertToChartPaths(
+		series: OrderedMap<PRStatus, DataSeries>,
+		viewBox: { width: number; height: number }
+	): OrderedMap<PRStatus, ChartPath> {
+		// Since each data series is ordered by date, we can find the min and max
+		// dates by looking at the first and last dates in each series
+		const minDate = series
+			.valueSeq()
+			.map((series) => series.keySeq().first())
+			.filter(Boolean)
+			.minBy((date) => date!, Temporal.PlainDate.compare);
+		const maxDate = series
+			.valueSeq()
+			.map((series) => series.keySeq().last())
+			.filter(Boolean)
+			.maxBy((date) => date!, Temporal.PlainDate.compare);
+
+		// Find the max count across all series
+		const maxCount = series
+			.valueSeq()
+			.map((series) => series.max())
+			.filter(Boolean)
+			.max();
+
+		// Edge case: no min or max
+		if (minDate === undefined || maxDate === undefined || maxCount === undefined) {
+			console.warn('Missing min date, max date, or max count:', { minDate, maxDate, maxCount });
+			return OrderedMap();
 		}
 
-		// Resize the points to the SVG viewbox coordinate space
-		const numDays = firstDate.until(data[data.length - 1].date).total('days');
-		const maxCount = previousPoints.reduce((max, { y }) => Math.max(max, y), 0);
-		for (const dataPoints of points.values()) {
-			for (const point of dataPoints) {
-				point.x = (point.x / numDays) * svgViewBox.width;
-				point.y = (point.y / maxCount) * svgViewBox.height;
-			}
-		}
+		// Figure out the conversion factor for dates and counts to SVG coordinates
+		const dayToX = viewBox.width / Temporal.PlainDate.from(minDate).until(maxDate).total('days');
+		const countToY = viewBox.height / maxCount;
 
-		// Format each path as a SVG path string
-		return (['unknown', 'neutral', 'failure', 'success'] as const).map((status) => {
-			const pointsForStatus = points.get(status);
-			if (pointsForStatus === undefined) {
-				return { status, chartPath: '' };
+		// Convert each data series into an SVG path
+		return series.map((data) => {
+			let path = '';
+
+			for (const [date, count] of data) {
+				const x = Temporal.PlainDate.from(minDate).until(date).total('days') * dayToX;
+				const y = viewBox.height - count * countToY;
+
+				path += `${path === '' ? 'M' : 'L'} ${x} ${y}`;
 			}
 
-			let chartPath = '';
-			for (const { x, y } of pointsForStatus) {
-				chartPath += `${chartPath.length === 0 ? 'M' : 'L'} ${x} ${svgViewBox.height - y} `;
-			}
-
-			return { status, chartPath };
+			return path;
 		});
 	}
 
-	function strokeColorForStatus(status: PR['status']): string {
+	function strokeColorForStatus(status: PRStatus): string {
 		switch (status) {
 			case 'success':
 				return 'stroke-green-500';
@@ -115,22 +237,8 @@
 	}
 </script>
 
-<div class="flex flex-col gap-2">
-	<div>
-		<!-- TODO: controls -->
-	</div>
-
-	<p>
-		<span class="font-bold">NOTE</span>: This chart is a work in progress.
-	</p>
-
-	<svg class="w-full aspect-[4/3]" viewBox={`0 0 ${svgViewBox.width} ${svgViewBox.height}`}>
-		{#each processedData as { status, chartPath }}
-			<path d={chartPath} fill="none" stroke-width="0.25em" class={strokeColorForStatus(status)} />
-		{/each}
-	</svg>
-
-	<div>
-		<!-- TODO: big stats -->
-	</div>
-</div>
+<svg class="w-full aspect-[4/3]" viewBox={`0 0 ${svgViewBox.width} ${svgViewBox.height}`}>
+	{#each chartPaths as [status, path]}
+		<path d={path} fill="none" stroke-width="0.167em" class={strokeColorForStatus(status)} />
+	{/each}
+</svg>
