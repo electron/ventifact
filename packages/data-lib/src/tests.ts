@@ -392,16 +392,18 @@ export async function markTestFlakesSince(
     Pick<
       Tables["test_runs"],
       "source" | "ext_id" | "blueprint_id" | "result_spec"
-    > &
-      Pick<Tables["test_run_blueprints"], "test_blueprint_ids"> & {
+    > & {
+      previous_source: Tables["test_runs"]["source"];
+      previous_ext_id: Tables["test_runs"]["ext_id"];
+    } & Pick<Tables["test_run_blueprints"], "test_blueprint_ids"> & {
         previous_result_spec: Tables["test_runs"]["result_spec"];
         rerun_num: number;
       }
   >(
     `
-    SELECT q.source, q.ext_id, q.blueprint_id, test_run_blueprints.test_blueprint_ids, q.result_spec, q.previous_result_spec, q.rerun_num
+    SELECT q.source, q.ext_id, q.previous_source, q.previous_ext_id, q.blueprint_id, test_run_blueprints.test_blueprint_ids, q.result_spec, q.previous_result_spec, q.rerun_num
     FROM (
-      SELECT *, LAG(result_spec) OVER w AS previous_result_spec, ROW_NUMBER() OVER w AS rerun_num
+      SELECT *, LAG(source) OVER w AS previous_source, LAG(ext_id) AS previous_ext_id, LAG(result_spec) OVER w AS previous_result_spec, ROW_NUMBER() OVER w AS rerun_num
       FROM test_runs
       WINDOW w AS (PARTITION BY blueprint_id, commit_id ORDER BY timestamp ASC)
     ) q
@@ -441,9 +443,17 @@ export async function markTestFlakesSince(
 
       // If the result changed, mark it as a flake
       if (prevResult !== result) {
+        // Determine which test run had the failing test, as it's much more
+        // helpful to record the flake against the failing test run
+        const failureInCurrentRun = !result;
+
         newTestFlakes.push({
-          test_run_source: row.source,
-          test_run_ext_id: row.ext_id,
+          test_run_source: failureInCurrentRun
+            ? row.source
+            : row.previous_source,
+          test_run_ext_id: failureInCurrentRun
+            ? row.ext_id
+            : row.previous_ext_id,
           test_id: id,
         });
       }
