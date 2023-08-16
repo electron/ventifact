@@ -91,7 +91,7 @@ export class Client {
               };
             }[];
           };
-        };
+        } | null;
       };
     }
 
@@ -140,29 +140,24 @@ export class Client {
         owner,
         repo,
       },
-      ({
-        data: {
-          repository: {
-            pullRequests: {
-              pageInfo: { hasNextPage, endCursor },
-            },
-          },
-        },
-      }) =>
-        hasNextPage
+      (resp) =>
+        resp.data.repository !== null &&
+        resp.data.repository.pullRequests.pageInfo.hasNextPage
           ? {
               owner,
               repo,
-              cursor: endCursor,
+              cursor: resp.data.repository.pullRequests.pageInfo.endCursor,
             }
           : false,
-      ({
-        data: {
-          repository: {
-            pullRequests: { nodes },
-          },
-        },
-      }) => {
+      (resp) => {
+        // Edge case: API errors
+        if (resp.data.repository === null) {
+          throw new Error("GitHub API failure: " + JSON.stringify(resp.data));
+        }
+
+        // Alias to the PR nodes
+        const nodes = resp.data.repository.pullRequests.nodes;
+
         // Edge case: if there are no PRs, return an empty list
         if (nodes.length === 0) {
           return [];
