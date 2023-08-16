@@ -403,7 +403,12 @@ export async function markTestFlakesSince(
     `
     SELECT q.source, q.ext_id, q.previous_source, q.previous_ext_id, q.blueprint_id, test_run_blueprints.test_blueprint_ids, q.result_spec, q.previous_result_spec, q.rerun_num
     FROM (
-      SELECT *, LAG(source) OVER w AS previous_source, LAG(ext_id) AS previous_ext_id, LAG(result_spec) OVER w AS previous_result_spec, ROW_NUMBER() OVER w AS rerun_num
+      SELECT
+        *,
+        LAG(source) OVER w AS previous_source,
+        LAG(ext_id) OVER w AS previous_ext_id,
+        LAG(result_spec) OVER w AS previous_result_spec,
+        ROW_NUMBER() OVER w AS rerun_num
       FROM test_runs
       WINDOW w AS (PARTITION BY blueprint_id, commit_id ORDER BY timestamp ASC)
     ) q
