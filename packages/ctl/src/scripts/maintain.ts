@@ -60,11 +60,7 @@ async function prs() {
 
 async function tests() {
   const appveyor = new AppVeyor.Client(Config.APPVEYOR.AUTH_TOKEN());
-
-  // TODO: auth tokens cause internal server errors for some reason, so we have
-  // to omit them here. This is a bug in CircleCI. Luckily, the calls we're
-  // making don't require authentication.
-  const circleci = new CircleCI.Client();
+  const circleci = new CircleCI.Client(Config.CIRCLECI.AUTH_TOKEN());
 
   // Delete expired test runs
   const expiredCutoff = Temporal.Now.zonedDateTimeISO("UTC")

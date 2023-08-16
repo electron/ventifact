@@ -3,16 +3,12 @@ import got, { Got } from "got";
 export class Client {
   #http: Got;
 
-  constructor(authToken?: string) {
+  constructor(authToken: string) {
     this.#http = got.extend({
       prefixUrl: "https://circleci.com/api/v2",
-      headers:
-        authToken === undefined
-          ? {}
-          : {
-              // "Circle-Token": authToken, // does not work with v2 API
-              Authorization: `Basic ${authToken}`,
-            },
+      headers: {
+        "Circle-Token": authToken,
+      },
     });
   }
 

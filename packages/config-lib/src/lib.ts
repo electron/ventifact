@@ -55,11 +55,10 @@ export const Config = {
    * CircleCI configuration.
    */
   CIRCLECI: {
-    // NOTE: currently unused
-    // /**
-    //  * The CircleCI auth token to use for API requests.
-    //  */
-    // CIRCLECI_AUTH_TOKEN: () => Env.sr("CIRCLECI_AUTH_TOKEN"),
+    /**
+     * The CircleCI auth token to use for API requests.
+     */
+    AUTH_TOKEN: () => Env.str("CIRCLECI_AUTH_TOKEN"),
 
     /**
      * The CircleCI project slug to fetch test runs for.
