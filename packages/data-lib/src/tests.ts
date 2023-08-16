@@ -451,14 +451,13 @@ export async function markTestFlakesSince(
         // Determine which test run had the failing test, as it's much more
         // helpful to record the flake against the failing test run
         const failureInCurrentRun = !result;
+        const [source, ext_id] = failureInCurrentRun
+          ? [row.source, row.ext_id]
+          : [row.previous_source, row.previous_ext_id];
 
         newTestFlakes.push({
-          test_run_source: failureInCurrentRun
-            ? row.source
-            : row.previous_source,
-          test_run_ext_id: failureInCurrentRun
-            ? row.ext_id
-            : row.previous_ext_id,
+          test_run_source: source,
+          test_run_ext_id: ext_id,
           test_id: id,
         });
       }
