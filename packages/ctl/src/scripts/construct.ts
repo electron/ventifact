@@ -19,7 +19,10 @@ import {
  * Constructs and populates the PRs section of the database.
  */
 async function prs() {
-  const github = new GitHub.Client(Config.GITHUB_AUTH_TOKEN());
+  const github = new GitHub.AppClient(
+    Config.GITHUB_APP.APP_ID(),
+    Config.GITHUB_APP.PRIVATE_KEY(),
+  );
 
   console.info("Dropping old PRs table...");
   await Schema.drop.prs();

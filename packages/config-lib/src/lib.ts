@@ -77,9 +77,19 @@ export const Config = {
   },
 
   /**
-   * The GitHub auth token to use for API requests.
+   * GitHub App configuration.
    */
-  GITHUB_AUTH_TOKEN: () => Env.str("GITHUB_AUTH_TOKEN"),
+  GITHUB_APP: {
+    /**
+     * The ID of the GitHub App.
+     */
+    APP_ID: () => Env.num("GITHUB_APP_ID"),
+
+    /**
+     * The Private Key of the GitHub App.
+     */
+    PRIVATE_KEY: () => Env.str("GITHUB_APP_PRIVATE_KEY"),
+  },
 };
 
 /**
@@ -97,6 +107,16 @@ const Env = {
   },
   strSet(key: string): Set<string> {
     return new Set(Env.str(key).split(","));
+  },
+  num(key: string): number {
+    const raw = Env.str(key);
+    const value = parseInt(raw, 10);
+
+    if (isNaN(value)) {
+      throw new Error(`Expected environment variable to be number: ${key}`);
+    }
+
+    return value;
   },
   duration(key: string): Temporal.Duration {
     return Temporal.Duration.from(Env.str(key));

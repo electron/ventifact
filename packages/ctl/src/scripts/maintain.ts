@@ -31,7 +31,10 @@ import {
 } from "../data-fetch/tests.js";
 
 async function prs() {
-  const github = new GitHub.Client(Config.GITHUB_AUTH_TOKEN());
+  const github = new GitHub.AppClient(
+    Config.GITHUB_APP.APP_ID(),
+    Config.GITHUB_APP.PRIVATE_KEY(),
+  );
 
   // Delete expired merged PRs
   const expiredCutoff = Temporal.Now.zonedDateTimeISO("UTC")
