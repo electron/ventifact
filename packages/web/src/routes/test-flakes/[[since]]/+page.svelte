@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Temporal } from '@js-temporal/polyfill';
 	import type { PageData } from './$types';
-	import ArrowSquareOut from 'phosphor-svelte/lib/ArrowSquareOut/ArrowSquareOut.svelte';
+	import ArrowSquareOut from 'phosphor-svelte/lib/ArrowSquareOut';
 
 	export let data: PageData;
 
