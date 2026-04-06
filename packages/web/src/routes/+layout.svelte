@@ -1,6 +1,6 @@
 <script>
 	import '../app.css';
-	import Wind from 'phosphor-svelte/lib/Wind/Wind.svelte';
+	import Wind from 'phosphor-svelte/lib/Wind';
 </script>
 
 <svelte:head>
